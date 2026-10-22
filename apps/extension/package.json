@@ -1,0 +1,20 @@
+{
+  "name": "extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "compile": "tsc --noEmit",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@justcreate/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "wxt": "^0.20"
+  }
+}

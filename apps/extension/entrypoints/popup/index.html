@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JUSTCREATE</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <strong>JUSTCREATE</strong>
+      <a id="library" href="#" target="_blank">Library ↗</a>
+    </header>
+
+    <section id="disconnected" hidden>
+      <p>Connect the extension to your account to start saving.</p>
+      <button id="connect" class="primary">Connect</button>
+    </section>
+
+    <section id="connected" hidden>
+      <textarea id="note" rows="2" placeholder="Note (optional)"></textarea>
+      <button id="save-page" class="primary">Save this page</button>
+      <p class="hint" id="page-kind"></p>
+      <div class="row">
+        <button data-shot="visible">Visible</button>
+        <button data-shot="region">Region</button>
+        <button data-shot="fullpage">Full page</button>
+      </div>
+      <p class="hint">Boards arrive in Phase 2. For now everything goes to your library.</p>
+      <p class="queue" id="queue" hidden>
+        <span id="queue-count"></span>
+        <button id="retry" class="link">Retry now</button>
+      </p>
+      <footer>
+        <span id="email"></span>
+        <button id="disconnect" class="link">Disconnect</button>
+      </footer>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

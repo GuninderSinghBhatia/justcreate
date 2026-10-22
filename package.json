@@ -1,0 +1,10 @@
+{
+  "name": "justcreate",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "dev:ext": "npm run dev -w extension",
+    "build": "npm run build -w web && npm run build -w extension"
+  }
+}

@@ -66,6 +66,14 @@ def test_model_headings_cannot_split_the_document():
     assert [t for t, _ in split_sections(out)[1]] == [t for _, t, _ in SECTIONS]
 
 
+def test_spacing_stays_single_blank_lines_after_many_passes():
+    b = board()
+    md = with_reference_map(assemble(b, {k: f"AI {k}\n\n\n" for k, _, _ in SECTIONS}), b)
+    for _ in range(3):
+        md = with_reference_map(replace_section(md, "Typography", "NEW\n\n"), b)
+    assert "\n\n\n" not in md
+
+
 def test_blank_line_after_heading_survives_round_trip():
     b = board()
     md = assemble(b, {k: f"AI {k}" for k, _, _ in SECTIONS})

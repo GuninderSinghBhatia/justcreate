@@ -79,7 +79,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Fallback chain: main model → cheaper model (separate quota) → a data-only draft (kind `draft`), so generation never just fails
 - [x] Editor at `/boards/:id/spec`: edit / split / preview, citations link to sources, generate (all or chosen clusters), regenerate one section (keeps your edits elsewhere), save as version, version picker, download `.md`, copy
 - [x] Tested: worker unit tests 19/19; Phase 4 e2e 20/21 → the one failure was a broken check in the test itself, verified passing on the downloaded file
-- [ ] Exit gate (you): give a generated design.md to Claude Code — “build a landing page from design.md” — on 3 boards with different styles
+- [x] Exit gate: 3 boards (dark product / warm editorial / bright playful) → design.md → Claude Code built a page from each spec alone → 3 of 3 in style (gate: 2 of 3). Write-up: [EXIT-GATE.md](EXIT-GATE.md)
 - [ ] Optional zip download with reference thumbnails (not built)
 
 ## Phase 5 — Coding agents and launch
@@ -95,7 +95,10 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Launch prep: extension icons + web favicon; permissions trimmed to contextMenus/storage/scripting/alarms + host (extension e2e still 8/8); store zip with production URL verified; web production build passes; worker Dockerfile (CPU torch, CLIP baked in; not built locally — no Docker here) and HOST/PORT env; full steps in [LAUNCH.md](LAUNCH.md)
 - [ ] Have the privacy policy and terms reviewed; add a real contact address
 - [ ] Chrome Web Store submission (you: developer account, listing, screenshots; needs the privacy policy URL, so deploy first)
-- [ ] Deploy (Vercel for web, a host for the worker) and set production URLs (`WXT_APP_URL`, Supabase Site URL)
+- [x] Code on GitHub (private): https://github.com/GuninderSinghBhatia/justcreate — CI green (web, extension, MCP, worker)
+- [x] Supabase secret key rotated (new key `justcreate_server` in `.env.local`, everything verified on it)
+- [ ] Delete the old leaked secret key `default` (sb_secret_d93zE…) in Supabase → API Keys — blocked for automation; one click for you
+- [ ] Deploy (Vercel for web, a host for the worker) — needs your Vercel + Railway/Render sign-in; then set production URLs (`WXT_APP_URL`, Supabase Site URL)
 - [ ] 60-second demo video for the landing page; launch posts
 - [ ] Optional: publish `@justcreate/mcp` to npm so setup is `npx -y @justcreate/mcp`
 
@@ -122,3 +125,4 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - 2026-10-23: Phase 4 (design.md) built and tested; fixed an accidental edit in migration 0001 that had slipped into the Phase 3 commit.
 - 2026-10-23: Phase 5 built and tested: API tokens, agent API, MCP server, settings, usage cap, landing + legal pages.
 - 2026-10-23: launch prep (icons, permissions, store listing text, Dockerfile, production build); extension confirmed connected in your Chrome.
+- 2026-10-23: key rotated, private GitHub repo + green CI, Phase 4 exit gate passed 3/3.

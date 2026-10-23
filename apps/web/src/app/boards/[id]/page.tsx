@@ -45,7 +45,7 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/bo
       <SiteHeader email={userData.user?.email} />
       <BoardWorkspace
         board={board as Board}
-        items={placed.map(({ reference: _r, ...item }) => item)}
+        items={placed.map((i) => ({ board_id: i.board_id, reference_id: i.reference_id, x: i.x, y: i.y, w: i.w, h: i.h, z: i.z }))}
         references={references}
         boards={boards ?? []}
         clusters={(clusters ?? []) as (Cluster & { members: Pick<ClusterMember, "reference_id" | "score">[] })[]}

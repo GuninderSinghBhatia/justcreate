@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { enqueueJob } from "@/lib/jobs";
-import { createClient } from "@/lib/supabase/server";
+import { must, requireUser } from "@/lib/require-user";
 
 /**
  * User control over clusters. The worker only ever replaces *suggested* AI clusters on a re-run:
@@ -11,145 +11,85 @@ import { createClient } from "@/lib/supabase/server";
  * group isn't suggested again.
  */
 
-async function signedIn() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/login");
-  return { supabase, user: data.user };
+type Ctx = { supabase: SupabaseClient; user: User; now: string };
+
+/** Runs `fn` for a cluster, then refreshes its board page. */
+async function onCluster(clusterId: string, fn: (ctx: Ctx) => Promise<unknown>) {
+  const { supabase, user } = await requireUser();
+  const { data } = must(await supabase.from("clusters").select("board_id").eq("id", clusterId).single());
+  await fn({ supabase, user, now: new Date().toISOString() });
+  revalidatePath(`/boards/${data!.board_id}`);
 }
 
-async function boardOf(supabase: Awaited<ReturnType<typeof createClient>>, clusterId: string) {
-  const { data, error } = await supabase.from("clusters").select("board_id").eq("id", clusterId).single();
-  if (error) throw new Error(error.message);
-  return data.board_id as string;
-}
-
-function check(error: { message: string } | null) {
-  if (error) throw new Error(error.message);
-}
+const members = (clusterId: string, referenceIds: string[], userId: string, score = 1) =>
+  referenceIds.map((reference_id) => ({ cluster_id: clusterId, reference_id, user_id: userId, score }));
 
 export async function setClusterStatus(clusterId: string, status: "accepted" | "rejected" | "suggested") {
-  const { supabase } = await signedIn();
-  const boardId = await boardOf(supabase, clusterId);
-  check(
-    (
+  await onCluster(clusterId, async ({ supabase, now }) =>
+    must(
       await supabase
         .from("clusters")
-        .update({ status, decided_at: status === "suggested" ? null : new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("id", clusterId)
-    ).error,
+        .update({ status, decided_at: status === "suggested" ? null : now, updated_at: now })
+        .eq("id", clusterId),
+    ),
   );
-  revalidatePath(`/boards/${boardId}`);
 }
 
 export async function renameCluster(clusterId: string, name: string) {
-  const { supabase } = await signedIn();
-  const trimmed = name.trim();
-  if (!trimmed) return;
-  const boardId = await boardOf(supabase, clusterId);
-  check((await supabase.from("clusters").update({ name: trimmed, updated_at: new Date().toISOString() }).eq("id", clusterId)).error);
-  revalidatePath(`/boards/${boardId}`);
+  if (!name.trim()) return;
+  await onCluster(clusterId, async ({ supabase, now }) =>
+    must(await supabase.from("clusters").update({ name: name.trim(), updated_at: now }).eq("id", clusterId)),
+  );
 }
 
 /** Merges clusters into the first one. The result counts as accepted: the user shaped it. */
 export async function mergeClusters(clusterIds: string[]) {
-  if (clusterIds.length < 2) return;
-  const { supabase, user } = await signedIn();
   const [target, ...rest] = clusterIds;
-  const boardId = await boardOf(supabase, target);
-  const { data: members } = await supabase
-    .from("cluster_members")
-    .select("reference_id, score")
-    .in("cluster_id", rest);
-  if (members?.length) {
-    check(
-      (
-        await supabase.from("cluster_members").upsert(
-          members.map((m) => ({ cluster_id: target, reference_id: m.reference_id, score: m.score, user_id: user.id })),
-          { onConflict: "cluster_id,reference_id", ignoreDuplicates: true },
-        )
-      ).error,
-    );
-  }
-  check((await supabase.from("clusters").delete().in("id", rest)).error);
-  check(
-    (
-      await supabase
-        .from("clusters")
-        .update({ status: "accepted", decided_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("id", target)
-    ).error,
-  );
-  revalidatePath(`/boards/${boardId}`);
-}
-
-export async function removeClusterMember(clusterId: string, referenceId: string) {
-  const { supabase } = await signedIn();
-  const boardId = await boardOf(supabase, clusterId);
-  check(
-    (await supabase.from("cluster_members").delete().eq("cluster_id", clusterId).eq("reference_id", referenceId)).error,
-  );
-  revalidatePath(`/boards/${boardId}`);
+  if (!rest.length) return;
+  await onCluster(target, async ({ supabase, user, now }) => {
+    const { data } = await supabase.from("cluster_members").select("reference_id").in("cluster_id", rest);
+    const ids = [...new Set((data ?? []).map((m) => m.reference_id as string))];
+    must(await supabase.from("cluster_members").upsert(members(target, ids, user.id), { ignoreDuplicates: true }));
+    must(await supabase.from("clusters").delete().in("id", rest));
+    must(await supabase.from("clusters").update({ status: "accepted", decided_at: now, updated_at: now }).eq("id", target));
+  });
 }
 
 export async function addClusterMembers(clusterId: string, referenceIds: string[]) {
   if (!referenceIds.length) return;
-  const { supabase, user } = await signedIn();
-  const boardId = await boardOf(supabase, clusterId);
-  check(
-    (
-      await supabase.from("cluster_members").upsert(
-        referenceIds.map((reference_id) => ({ cluster_id: clusterId, reference_id, score: 1, user_id: user.id })),
-        { onConflict: "cluster_id,reference_id", ignoreDuplicates: true },
-      )
-    ).error,
+  await onCluster(clusterId, async ({ supabase, user }) =>
+    must(await supabase.from("cluster_members").upsert(members(clusterId, referenceIds, user.id), { ignoreDuplicates: true })),
   );
-  revalidatePath(`/boards/${boardId}`);
 }
 
-export async function moveClusterMember(referenceId: string, fromClusterId: string, toClusterId: string) {
-  await addClusterMembers(toClusterId, [referenceId]);
-  await removeClusterMember(fromClusterId, referenceId);
+export async function removeClusterMember(clusterId: string, referenceId: string) {
+  await onCluster(clusterId, async ({ supabase }) =>
+    must(await supabase.from("cluster_members").delete().eq("cluster_id", clusterId).eq("reference_id", referenceId)),
+  );
+}
+
+export async function deleteCluster(clusterId: string) {
+  await onCluster(clusterId, async ({ supabase }) => must(await supabase.from("clusters").delete().eq("id", clusterId)));
 }
 
 /** A cluster made by hand from the current canvas selection. Always accepted. */
 export async function createManualCluster(boardId: string, name: string, referenceIds: string[]) {
-  const { supabase, user } = await signedIn();
-  const { data, error } = await supabase
-    .from("clusters")
-    .insert({
-      board_id: boardId,
-      user_id: user.id,
-      name: name.trim() || "New cluster",
-      status: "accepted",
-      source: "user",
-      decided_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-  check(error);
-  if (referenceIds.length) {
-    check(
-      (
-        await supabase
-          .from("cluster_members")
-          .insert(referenceIds.map((reference_id) => ({ cluster_id: data!.id, reference_id, user_id: user.id })))
-      ).error,
-    );
-  }
-  revalidatePath(`/boards/${boardId}`);
-}
-
-export async function deleteCluster(clusterId: string) {
-  const { supabase } = await signedIn();
-  const boardId = await boardOf(supabase, clusterId);
-  check((await supabase.from("clusters").delete().eq("id", clusterId)).error);
+  const { supabase, user } = await requireUser();
+  const now = new Date().toISOString();
+  const { data } = must(
+    await supabase
+      .from("clusters")
+      .insert({ board_id: boardId, user_id: user.id, name: name.trim() || "New cluster", status: "accepted", source: "user", decided_at: now })
+      .select("id")
+      .single(),
+  );
+  if (referenceIds.length) must(await supabase.from("cluster_members").insert(members(data!.id, referenceIds, user.id)));
   revalidatePath(`/boards/${boardId}`);
 }
 
 /** "Re-cluster" button: queue a clustering run for the board. */
 export async function reclusterBoard(boardId: string) {
-  const { user } = await signedIn();
+  const { user } = await requireUser();
   await enqueueJob(user.id, "cluster", { boardId });
   revalidatePath(`/boards/${boardId}`);
 }

@@ -157,6 +157,7 @@ export function BoardWorkspace({
         </main>
         {view === "canvas" && selected && (
           <ReferenceDrawer
+            key={selected.id}
             docked
             reference={selected}
             boardId={board.id}

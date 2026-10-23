@@ -21,7 +21,8 @@ create index references_user_created_idx on public."references" (user_id, create
 alter table public."references" enable row level security;
 
 create policy "own references: select" on public."references"
-  for select using (auth.uid() = user_id);
+  for select using (auth.uid() = user_i
+  d);
 create policy "own references: insert" on public."references"
   for insert with check (auth.uid() = user_id);
 create policy "own references: update" on public."references"

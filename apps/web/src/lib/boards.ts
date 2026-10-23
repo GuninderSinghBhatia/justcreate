@@ -1,21 +1,11 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CaptureMetadata, Reference } from "@justcreate/shared";
+import { CARD_WIDTH, cardSize, type Reference } from "@justcreate/shared";
 import { enqueueJob, RECLUSTER_AFTER } from "@/lib/jobs";
 
-export const CARD_WIDTH = 280;
-const CARD_FOOTER = 64;
 const GAP = 24;
 const COLUMNS = 6;
-
-/** Card height from the image's aspect ratio, so cards don't letterbox. */
-export function cardSize(reference: Pick<Reference, "metadata">) {
-  const meta = reference.metadata as CaptureMetadata;
-  const ratio = meta.width && meta.height ? meta.height / meta.width : 0.75;
-  const h = Math.round(Math.min(Math.max(CARD_WIDTH * ratio, 120), 900) + CARD_FOOTER);
-  return { w: CARD_WIDTH, h };
-}
 
 /**
  * Places references on a board below whatever is already there, in a simple grid.
@@ -38,7 +28,7 @@ export async function addToBoard(
 
   const top = Math.max(0, ...(existing ?? []).map((i) => i.y + i.h + GAP));
   const rows = fresh.map((r, n) => {
-    const { w, h } = cardSize(r);
+    const { w, h } = cardSize(r.metadata);
     return {
       board_id: boardId,
       reference_id: r.id,

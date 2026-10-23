@@ -93,7 +93,7 @@ export function ReferenceGrid({
         </ul>
       )}
       {open && (
-        <ReferenceDrawer reference={open} onClose={() => setOpenId(null)} boardId={boardId} boards={boards} />
+        <ReferenceDrawer key={open.id} reference={open} onClose={() => setOpenId(null)} boardId={boardId} boards={boards} />
       )}
     </div>
   );

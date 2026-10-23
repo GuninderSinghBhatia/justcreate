@@ -20,7 +20,8 @@ export interface BoardOption {
 
 /**
  * Side drawer for one reference: large preview, source link, editable title / note / labels /
- * description, AI analysis, and board actions.
+ * description, AI analysis, and board actions. Render with `key={reference.id}` so the form
+ * resets when another reference is opened.
  */
 export function ReferenceDrawer({
   reference: r,
@@ -44,14 +45,6 @@ export function ReferenceDrawer({
   const [description, setDescription] = useState(r.description ?? "");
   const [labels, setLabels] = useState(r.labels.join(", "));
   const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    setTitle(r.title ?? "");
-    setNote(r.note ?? "");
-    setDescription(r.description ?? "");
-    setLabels(r.labels.join(", "));
-    setStatus("");
-  }, [r]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();

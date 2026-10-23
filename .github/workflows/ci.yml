@@ -8,12 +8,15 @@ jobs:
   web-and-extension:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Generate Next.js route types
+        run: npx next typegen
+        working-directory: apps/web
       - name: Type-check web
         run: npx tsc --noEmit -p apps/web
       - name: Lint web
@@ -22,6 +25,8 @@ jobs:
         run: npm run compile -w extension
       - name: Build extension
         run: npm run build -w extension
+      - name: Build MCP server
+        run: npm run build -w @justcreate/mcp
       - name: Build web
         run: npm run build -w web
         env:
@@ -36,7 +41,7 @@ jobs:
       run:
         working-directory: apps/worker
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
       - name: Unit tests

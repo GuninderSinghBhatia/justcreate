@@ -25,3 +25,12 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Linux (containers): CPU-only torch. The default Linux wheel bundles CUDA (~2 GB) the worker never uses.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

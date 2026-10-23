@@ -91,6 +91,8 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Free tier cap: 30 AI design.md generations / month (`AI_MONTHLY_GENERATIONS`), enforced on generate + section rewrite
 - [x] Landing page at `/` (signed-out), privacy policy + terms drafts, branded 404, footer legal links
 - [x] Tested: Phase 5 e2e 21/21 (UI token flow, API auth + scoping, MCP over stdio with the real client SDK, revoke, cap); landing checked light/dark/mobile, no overflow, no orphaned words
+- [x] Extension ↔ your Chrome: connected (confirmed on `/connect`)
+- [x] Launch prep: extension icons + web favicon; permissions trimmed to contextMenus/storage/scripting/alarms + host (extension e2e still 8/8); store zip with production URL verified; web production build passes; worker Dockerfile (CPU torch, CLIP baked in; not built locally — no Docker here) and HOST/PORT env; full steps in [LAUNCH.md](LAUNCH.md)
 - [ ] Have the privacy policy and terms reviewed; add a real contact address
 - [ ] Chrome Web Store submission (you: developer account, listing, screenshots; needs the privacy policy URL, so deploy first)
 - [ ] Deploy (Vercel for web, a host for the worker) and set production URLs (`WXT_APP_URL`, Supabase Site URL)
@@ -119,3 +121,4 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - 2026-10-23: Gemini provider added; Phase 3 e2e 14/14; compaction pass (shared card sizing, one canvas placeCard, shared requireUser, cluster-action wrapper); lockfile regenerated so ESLint runs clean.
 - 2026-10-23: Phase 4 (design.md) built and tested; fixed an accidental edit in migration 0001 that had slipped into the Phase 3 commit.
 - 2026-10-23: Phase 5 built and tested: API tokens, agent API, MCP server, settings, usage cap, landing + legal pages.
+- 2026-10-23: launch prep (icons, permissions, store listing text, Dockerfile, production build); extension confirmed connected in your Chrome.

@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import threading
 
@@ -20,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("worker")
 
 
-def serve(port: int = 8100) -> None:
+def serve() -> None:
     import uvicorn
     from fastapi import FastAPI
 
@@ -50,7 +51,9 @@ def serve(port: int = 8100) -> None:
 
     threading.Thread(target=loop, daemon=True, name="jobs").start()
     log.info("LLM provider: %s (%s)", settings.provider or "none — metadata/colour tags", settings.analysis_model_name)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    # Local default: loopback only. Containers set HOST=0.0.0.0 and the platform's PORT.
+    host, port = os.environ.get("HOST", "127.0.0.1"), int(os.environ.get("PORT", "8100"))
+    uvicorn.run(app, host=host, port=port, log_level="warning")
 
 
 def once() -> None:

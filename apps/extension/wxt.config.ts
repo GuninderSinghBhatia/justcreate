@@ -4,7 +4,8 @@ export default defineConfig({
   manifest: {
     name: 'JUSTCREATE',
     description: 'Save images, screenshots, videos, posts and pages to your JUSTCREATE library.',
-    permissions: ['contextMenus', 'tabs', 'activeTab', 'storage', 'scripting', 'alarms', 'unlimitedStorage'],
+    // Minimal set: <all_urls> host access already covers tab URLs, screenshots and script injection.
+    permissions: ['contextMenus', 'storage', 'scripting', 'alarms'],
     // Needed to read images across sites, take screenshots without a click, and reach the API.
     host_permissions: ['<all_urls>'],
     action: { default_title: 'JUSTCREATE' },

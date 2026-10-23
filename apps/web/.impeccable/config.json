@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-10-23T07:05:43.930Z",
         "reason": "landing-page-design skill (user-installed) rule B5 mandates a left-to-right gradient on the hero heading text"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/app/globals.css"
+        ],
+        "createdAt": "2026-10-23T07:13:40.412Z",
+        "reason": "Claude triage: the flagged rule is the 2px neutral left rule on blockquote in the design.md markdown preview (standard quote styling), not an accent border on a card"
       }
     ]
   }

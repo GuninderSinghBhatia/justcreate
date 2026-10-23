@@ -82,6 +82,21 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [ ] Exit gate (you): give a generated design.md to Claude Code — “build a landing page from design.md” — on 3 boards with different styles
 - [ ] Optional zip download with reference thumbnails (not built)
 
+## Phase 5 — Coding agents and launch
+
+- [x] Personal API tokens (migration 0006): `jc_…`, SHA-256 hash only, shown once, revocable, last-used tracking
+- [x] Agent API `/api/agent/boards`, `/boards/:board/spec`, `/boards/:board/references?cluster=` — token auth, scoped to the owner, boards by name or id
+- [x] `apps/mcp`: stdio MCP server with `list_boards`, `get_design_spec`, `get_references` (read-only, readable tool errors) — see `apps/mcp/README.md`
+- [x] Settings page: usage this month, tokens, copy-paste setup for Claude Code and Cursor (token + path filled in)
+- [x] Free tier cap: 30 AI design.md generations / month (`AI_MONTHLY_GENERATIONS`), enforced on generate + section rewrite
+- [x] Landing page at `/` (signed-out), privacy policy + terms drafts, branded 404, footer legal links
+- [x] Tested: Phase 5 e2e 21/21 (UI token flow, API auth + scoping, MCP over stdio with the real client SDK, revoke, cap); landing checked light/dark/mobile, no overflow, no orphaned words
+- [ ] Have the privacy policy and terms reviewed; add a real contact address
+- [ ] Chrome Web Store submission (you: developer account, listing, screenshots; needs the privacy policy URL, so deploy first)
+- [ ] Deploy (Vercel for web, a host for the worker) and set production URLs (`WXT_APP_URL`, Supabase Site URL)
+- [ ] 60-second demo video for the landing page; launch posts
+- [ ] Optional: publish `@justcreate/mcp` to npm so setup is `npx -y @justcreate/mcp`
+
 ## How the pieces fit
 
 - Extension / web uploads → `POST /api/captures` (bearer token or cookie) → Storage + `references` row → `analyze` job.
@@ -103,3 +118,4 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - 2026-10-23: Phase 2 built and browser-tested; Phase 3 worker built; migrations 0002–0004 applied via the SQL editor.
 - 2026-10-23: Gemini provider added; Phase 3 e2e 14/14; compaction pass (shared card sizing, one canvas placeCard, shared requireUser, cluster-action wrapper); lockfile regenerated so ESLint runs clean.
 - 2026-10-23: Phase 4 (design.md) built and tested; fixed an accidental edit in migration 0001 that had slipped into the Phase 3 commit.
+- 2026-10-23: Phase 5 built and tested: API tokens, agent API, MCP server, settings, usage cap, landing + legal pages.

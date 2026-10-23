@@ -3,19 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { enqueueJob } from "@/lib/jobs";
 import { must, requireUser } from "@/lib/require-user";
+import { generationsThisMonth } from "@/lib/usage";
 
 /** Queues a full design.md generation (optionally from chosen clusters only). */
 export async function generateSpec(boardId: string, clusterIds: string[]) {
-  const { user } = await requireUser();
-  const result = await enqueueJob(user.id, "spec", { boardId }, { cluster_ids: clusterIds });
-  revalidatePath(`/boards/${boardId}/spec`);
-  return result;
+  return queueSpec(boardId, { cluster_ids: clusterIds });
 }
 
 /** Queues a rewrite of one section; edits elsewhere in the latest version are kept. */
 export async function regenerateSection(boardId: string, section: string) {
-  const { user } = await requireUser();
-  const result = await enqueueJob(user.id, "spec", { boardId }, { section });
+  return queueSpec(boardId, { section });
+}
+
+async function queueSpec(boardId: string, params: Record<string, unknown>) {
+  const { supabase, user } = await requireUser();
+  const usage = await generationsThisMonth(supabase, user.id);
+  if (!usage.left) {
+    throw new Error(`Monthly limit reached (${usage.limit} AI generations). Editing and downloading still work.`);
+  }
+  const result = await enqueueJob(user.id, "spec", { boardId }, params);
   revalidatePath(`/boards/${boardId}/spec`);
   return result;
 }

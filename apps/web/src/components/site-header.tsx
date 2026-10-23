@@ -16,6 +16,9 @@ export function SiteHeader({ email }: { email?: string }) {
         <Link href="/connect" className="hover:underline">
           Extension
         </Link>
+        <Link href="/settings" className="hover:underline">
+          Settings
+        </Link>
         {email && <span className="hidden text-foreground/60 sm:inline">{email}</span>}
         <form action="/auth/signout" method="post">
           <button className="text-foreground/60 hover:text-foreground">Sign out</button>

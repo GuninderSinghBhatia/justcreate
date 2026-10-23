@@ -10,7 +10,10 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+_HERE = Path(__file__).resolve()
+# Repo root in the monorepo (apps/worker/worker/config.py → 3 up). In a container there is no
+# monorepo, so fall back to env vars only.
+ROOT = _HERE.parents[3] if len(_HERE.parents) > 3 else _HERE.parent
 
 
 def _read_env_file(path: Path) -> dict[str, str]:

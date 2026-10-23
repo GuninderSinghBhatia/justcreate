@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  web-and-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check web
+        run: npx tsc --noEmit -p apps/web
+      - name: Lint web
+        run: npm run lint -w web
+      - name: Type-check extension
+        run: npm run compile -w extension
+      - name: Build extension
+        run: npm run build -w extension
+      - name: Build web
+        run: npm run build -w web
+        env:
+          # Build-time placeholders; the build doesn't call Supabase.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci
+          SUPABASE_SECRET_KEY: sb_secret_ci
+
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - name: Unit tests
+        run: uv run pytest -q

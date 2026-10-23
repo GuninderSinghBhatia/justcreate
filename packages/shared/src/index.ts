@@ -128,6 +128,17 @@ export interface CaptureResponse {
   error?: string;
 }
 
+export const CARD_WIDTH = 280;
+const CARD_FOOTER = 56;
+
+/** Canvas card size: fixed width, height from the image's aspect ratio (clamped). */
+export function cardSize(metadata: Record<string, unknown>) {
+  const width = Number(metadata.width) || 0;
+  const height = Number(metadata.height) || 0;
+  const ratio = width && height ? height / width : 0.75;
+  return { w: CARD_WIDTH, h: Math.round(Math.min(Math.max(CARD_WIDTH * ratio, 120), 900) + CARD_FOOTER) };
+}
+
 /** Session handed from the web app to the extension. */
 export interface ExtensionSession {
   access_token: string;

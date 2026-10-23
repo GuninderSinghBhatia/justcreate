@@ -10,7 +10,7 @@ import {
   type TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import type { BoardItem } from "@justcreate/shared";
+import { CARD_WIDTH, cardSize, type BoardItem } from "@justcreate/shared";
 import type { ReferenceView } from "@/lib/references";
 import { uploadImages } from "@/lib/upload";
 import { REFERENCE_SHAPE, ReferencesContext, ReferenceShapeUtil, type ReferenceShape } from "./reference-shape";
@@ -52,6 +52,15 @@ export function BoardCanvas({
   const [editor, setEditor] = useState<Editor | null>(null);
   // References added on the canvas (sidebar drops, uploads) before the page data refreshes.
   const [extra, setExtra] = useState<Map<string, ReferenceView>>(new Map());
+  const remember = useCallback(
+    (refs: ReferenceView[]) =>
+      setExtra((prev) => {
+        const next = new Map(prev);
+        for (const r of refs) next.set(r.id, r);
+        return next;
+      }),
+    [],
+  );
   const byId = useMemo(() => {
     const map = new Map(extra);
     for (const r of references) map.set(r.id, r);
@@ -174,20 +183,8 @@ export function BoardCanvas({
         const local = files.map((f) => URL.createObjectURL(f));
         const saved = await uploadImages(files);
         const origin = point ?? ed.getViewportPageBounds().center;
-        setExtra((prev) => {
-          const next = new Map(prev);
-          saved.forEach((r, n) => next.set(r.id, { ...r, labels: [], imageUrl: local[n] }));
-          return next;
-        });
-        ed.createShapes(
-          saved.map((r, n) => ({
-            id: createShapeId(),
-            type: REFERENCE_SHAPE,
-            x: origin.x + n * 300,
-            y: origin.y,
-            props: { w: 280, h: sizeFor(r).h, referenceId: r.id },
-          })),
-        );
+        remember(saved.map((r, n) => ({ ...r, labels: [], imageUrl: local[n] })));
+        saved.forEach((r, n) => placeCard(ed, r, origin.x + n * (CARD_WIDTH + 20), origin.y));
       });
       setEditor(ed);
       onReady?.({
@@ -200,20 +197,11 @@ export function BoardCanvas({
           if (ids.length) ed.zoomToSelection({ animation: { duration: 300 } });
         },
         add(reference) {
-          setExtra((prev) => new Map(prev).set(reference.id, reference));
-          const { w, h } = sizeFor(reference);
+          remember([reference]);
           const center = ed.getViewportPageBounds().center;
           // Cascade cards added in a row so they don't land exactly on top of each other.
           const offset = (cascade.current++ % 8) * 36;
-          const id = createShapeId();
-          ed.createShape({
-            id,
-            type: REFERENCE_SHAPE,
-            x: center.x - w / 2 + offset,
-            y: center.y - h / 2 + offset,
-            props: { w, h, referenceId: reference.id },
-          });
-          ed.select(id);
+          ed.select(placeCard(ed, reference, center.x + offset, center.y + offset));
         },
       });
     },
@@ -229,22 +217,8 @@ export function BoardCanvas({
     e.stopPropagation(); // keep tldraw from treating it as a text/url drop
     const reference = JSON.parse(raw) as ReferenceView;
     const point = editor.screenToPage({ x: e.clientX, y: e.clientY });
-    const exists = editor
-      .getCurrentPageShapes()
-      .find((s): s is ReferenceShape => s.type === REFERENCE_SHAPE && s.props.referenceId === reference.id);
-    if (exists) {
-      editor.select(exists.id);
-      return;
-    }
-    setExtra((prev) => new Map(prev).set(reference.id, reference));
-    const { w, h } = sizeFor(reference);
-    editor.createShape({
-      id: createShapeId(),
-      type: REFERENCE_SHAPE,
-      x: point.x - w / 2,
-      y: point.y - 40,
-      props: { w, h, referenceId: reference.id },
-    });
+    remember([reference]);
+    editor.select(placeCard(editor, reference, point.x, point.y));
   };
 
   return (
@@ -262,9 +236,14 @@ export function BoardCanvas({
   );
 }
 
-function sizeFor(r: { metadata: Record<string, unknown> }) {
-  const width = Number(r.metadata.width) || 0;
-  const height = Number(r.metadata.height) || 0;
-  const ratio = width && height ? height / width : 0.75;
-  return { w: 280, h: Math.round(Math.min(Math.max(280 * ratio, 120), 900) + 56) };
+/** Card for `reference` centred on (x, y); reuses the existing card if it's already on the canvas. */
+function placeCard(ed: Editor, reference: { id: string; metadata: Record<string, unknown> }, x: number, y: number) {
+  const existing = ed
+    .getCurrentPageShapes()
+    .find((s): s is ReferenceShape => s.type === REFERENCE_SHAPE && s.props.referenceId === reference.id);
+  if (existing) return existing.id;
+  const { w, h } = cardSize(reference.metadata);
+  const id = createShapeId();
+  ed.createShape({ id, type: REFERENCE_SHAPE, x: x - w / 2, y: y - h / 2, props: { w, h, referenceId: reference.id } });
+  return id;
 }

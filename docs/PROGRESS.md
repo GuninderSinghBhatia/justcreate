@@ -68,11 +68,26 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Tested: worker unit tests 9/9; Phase 3 e2e 14/14 with Gemini (12/12 analysed, clusters 100% pure on a 3-family test board)
 - [ ] Hand-labelled 100-reference test set (you: collect references across 5 styles)
 
+## Phase 4 — design.md generation
+
+- [x] `spec` worker job (migration 0005: `design_specs` versions, `jobs.params`); waits until the board's analyses are done
+- [x] Aggregates in code: weighted k-means palette over every analysed palette + font/component/effect/tag counts, each with citations
+- [x] Map → reduce: one brief per cluster (accepted/user clusters, else suggested, else the whole board), then the full document with 3–6 key images attached
+- [x] Fixed sections: direction, palette, typography, layout, components, effects, motion, responsive, implementation (CSS `:root` tokens + Tailwind snippet), reference map
+- [x] Every claim cited `[ref:xxxxxx]` and tagged **Observed** / **Inferred**; invented citations stripped, grouped ones split; model headings can't break the section structure
+- [x] Reference map built in code from the citations (title, type, which sections cite it, source link)
+- [x] Fallback chain: main model → cheaper model (separate quota) → a data-only draft (kind `draft`), so generation never just fails
+- [x] Editor at `/boards/:id/spec`: edit / split / preview, citations link to sources, generate (all or chosen clusters), regenerate one section (keeps your edits elsewhere), save as version, version picker, download `.md`, copy
+- [x] Tested: worker unit tests 19/19; Phase 4 e2e 20/21 → the one failure was a broken check in the test itself, verified passing on the downloaded file
+- [ ] Exit gate (you): give a generated design.md to Claude Code — “build a landing page from design.md” — on 3 boards with different styles
+- [ ] Optional zip download with reference thumbnails (not built)
+
 ## How the pieces fit
 
 - Extension / web uploads → `POST /api/captures` (bearer token or cookie) → Storage + `references` row → `analyze` job.
 - Worker: `analyze` → `analyses` + `embeddings` (+ thumbnail) → may queue `cluster`; `cluster` → replaces only *suggested* AI clusters.
 - Canvas → `PUT /api/boards/:id/canvas` saves the tldraw document and syncs `board_items`.
+- design.md: server action queues a `spec` job (params: cluster ids or one section) → worker writes a new `design_specs` version → the spec page refreshes.
 - The secret key is used server-side only: minting extension sessions, queueing jobs, and the worker.
 
 ## Differences from the execution plan (on purpose)
@@ -87,3 +102,4 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - 2026-10-22: plan written, repo initialised; Phase 0 + 1 built and tested; moved to port 3100.
 - 2026-10-23: Phase 2 built and browser-tested; Phase 3 worker built; migrations 0002–0004 applied via the SQL editor.
 - 2026-10-23: Gemini provider added; Phase 3 e2e 14/14; compaction pass (shared card sizing, one canvas placeCard, shared requireUser, cluster-action wrapper); lockfile regenerated so ESLint runs clean.
+- 2026-10-23: Phase 4 (design.md) built and tested; fixed an accidental edit in migration 0001 that had slipped into the Phase 3 commit.

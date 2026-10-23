@@ -52,7 +52,8 @@ SYSTEM = (
 
 
 def analyze_with_llm(settings: Settings, image: Image.Image | None, context: dict[str, Any]) -> ReferenceAnalysis:
-    return structured(settings, "analysis", SYSTEM, _context_text(context), ReferenceAnalysis, image)
+    return structured(settings, "analysis", SYSTEM, _context_text(context), ReferenceAnalysis,
+                      [image] if image is not None else None)
 
 
 HEURISTIC_VERSION = "heuristic-v1"

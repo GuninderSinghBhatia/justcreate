@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "src/app/page.tsx"
+        ],
+        "createdAt": "2026-10-23T07:05:43.930Z",
+        "reason": "landing-page-design skill (user-installed) rule B5 mandates a left-to-right gradient on the hero heading text"
+      }
+    ]
+  }
+}

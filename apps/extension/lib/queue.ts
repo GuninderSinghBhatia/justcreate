@@ -5,6 +5,7 @@ export interface QueuedCapture {
   id: string;
   payload: CapturePayload;
   file?: Blob;
+  thumbnail?: Blob;
   attempts: number;
   createdAt: number;
 }

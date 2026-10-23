@@ -1,5 +1,5 @@
 import type { CapturePayload } from '@justcreate/shared';
-import { flushQueue, upload, type UploadResult } from '../lib/api';
+import { flushQueue, getDefaultBoard, listBoards, setDefaultBoard, upload, type UploadResult } from '../lib/api';
 import { getSession, setSession } from '../lib/auth';
 import type {
   BackgroundRequest,
@@ -95,8 +95,18 @@ async function handlePopup(message: BackgroundRequest): Promise<unknown> {
   switch (message.kind) {
     case 'status': {
       const session = await getSession();
-      return { connected: Boolean(session), email: session?.email, queued: await queueSize() } satisfies StatusResponse;
+      return {
+        connected: Boolean(session),
+        email: session?.email,
+        queued: await queueSize(),
+        boardId: await getDefaultBoard(),
+      } satisfies StatusResponse;
     }
+    case 'boards':
+      return { boards: await listBoards() };
+    case 'setBoard':
+      await setDefaultBoard(message.boardId);
+      return { ok: true };
     case 'connected':
       await setSession(message.session);
       void retryQueue();
@@ -132,13 +142,14 @@ async function saveImage(tab: Tab, srcUrl: string) {
     // The server retries the download if the extension couldn't read the image.
     remoteFileUrl: file || srcUrl.startsWith('data:') ? undefined : srcUrl,
     metadata: { pageTitle: tab.title, ...size },
+    boardId: await getDefaultBoard(),
   };
   await finish(tab, await upload(payload, file ?? undefined), 'Image saved');
 }
 
 async function saveDetected(tab: Tab, mode: 'auto' | 'tweet' | 'video', note?: string) {
   const detection = await send<Detection>(tab, { kind: 'detect', mode });
-  const payload: CapturePayload = { ...detection.payload, note: note || undefined };
+  const payload: CapturePayload = { ...detection.payload, note: note || undefined, boardId: await getDefaultBoard() };
 
   let file: Blob | null = null;
   for (const url of detection.fileCandidates ?? []) {
@@ -148,13 +159,20 @@ async function saveDetected(tab: Tab, mode: 'auto' | 'tweet' | 'video', note?: s
   if (!file && detection.elementRect) {
     file = await crop(await captureVisible(tab.windowId), detection.elementRect, await viewportWidth(tab));
   }
+  let thumbnail: Blob | undefined;
   if (!file && detection.fullPageScreenshot) {
+    // Card image = what the user sees; the full-page shot is kept as the file.
+    thumbnail = await captureVisible(tab.windowId);
     file = await fullPage(tab);
   }
-  if (file) payload.metadata = { ...payload.metadata, ...(await imageSize(file)) };
+  if (file) {
+    const full = await imageSize(file);
+    const card = thumbnail ? await imageSize(thumbnail) : full;
+    payload.metadata = { ...payload.metadata, ...card, fullHeight: full?.height };
+  }
 
   const label = payload.type === 'video' ? 'Video saved' : payload.type === 'tweet' ? 'Post saved' : 'Page saved';
-  await finish(tab, await upload(payload, file ?? undefined), label);
+  await finish(tab, await upload(payload, file ?? undefined, thumbnail), label);
 }
 
 async function saveScreenshot(tab: Tab, mode: ScreenshotMode, note?: string) {
@@ -176,6 +194,7 @@ async function saveScreenshot(tab: Tab, mode: ScreenshotMode, note?: string) {
     pageUrl: tab.url,
     title: tab.title,
     note: note || undefined,
+    boardId: await getDefaultBoard(),
     metadata: {
       screenshotMode: mode,
       pageTitle: tab.title,

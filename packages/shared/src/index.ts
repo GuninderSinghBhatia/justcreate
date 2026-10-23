@@ -15,7 +15,69 @@ export interface Reference {
   thumbnail_path: string | null;
   metadata: Record<string, unknown>;
   note: string | null;
+  labels: string[];
+  description: string | null;
   created_at: string;
+}
+
+export interface Board {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  document: unknown | null;
+  cover_reference_id: string | null;
+  clustered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BoardItem {
+  board_id: string;
+  reference_id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+}
+
+/** Output of the worker's per-reference analysis. Observed = visible in the image; inferred = guessed. */
+export interface Analysis {
+  reference_id: string;
+  model_version: string;
+  caption: string | null;
+  summary: string | null;
+  tags: string[];
+  palette: string[];
+  colors: string[];
+  fonts: string[];
+  layout_notes: string | null;
+  components: string[];
+  effects: string[];
+  mood: string[];
+  observed: Record<string, unknown>;
+  inferred: Record<string, unknown>;
+  created_at: string;
+}
+
+export type ClusterStatus = 'suggested' | 'accepted' | 'rejected';
+
+export interface Cluster {
+  id: string;
+  board_id: string;
+  name: string;
+  ai_name: string | null;
+  summary: string | null;
+  status: ClusterStatus;
+  source: 'ai' | 'user';
+  created_at: string;
+}
+
+export interface ClusterMember {
+  cluster_id: string;
+  reference_id: string;
+  score: number;
 }
 
 /** Type-specific details kept in `metadata`. All optional: adapters fill what they can find. */
@@ -55,6 +117,8 @@ export interface CapturePayload {
   pageUrl?: string;
   title?: string;
   note?: string;
+  /** Board to place the capture on. Omitted → it lands in the inbox. */
+  boardId?: string;
   remoteFileUrl?: string;
   metadata?: CaptureMetadata;
 }

@@ -42,7 +42,7 @@ jobs:
         working-directory: apps/worker
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync
       - name: Unit tests
         run: uv run pytest -q

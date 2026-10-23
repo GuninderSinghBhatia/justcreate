@@ -4,14 +4,14 @@ Everything here needs your accounts. Do it in order: the Chrome Web Store needs 
 
 ## 1. Deploy the web app (Vercel)
 
-1. Push the repo to GitHub, import it in Vercel, set **Root Directory** to `apps/web` (Vercel detects the npm workspace).
+1. The repo is already on GitHub (private): `GuninderSinghBhatia/justcreate`. Import it in Vercel, set **Root Directory** to `apps/web` (Vercel detects the npm workspace).
 2. Environment variables (Production):
 
    | Name | Value |
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | `https://gvqubavzxctimdswjnoq.supabase.co` |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` |
-   | `SUPABASE_SECRET_KEY` | `sb_secret_…` (rotate it first: it was pasted in chat during setup) |
+   | `SUPABASE_SECRET_KEY` | the `justcreate_server` secret key (copy it from Supabase → API Keys; the old `default` key should be deleted) |
    | `WORKER_URL` | the worker URL from step 2 (optional; the worker also polls) |
    | `AI_MONTHLY_GENERATIONS` | `30` (optional) |
 

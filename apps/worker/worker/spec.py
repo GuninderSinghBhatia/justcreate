@@ -390,5 +390,6 @@ def clean_body(text: str, board: Board, title: str | None = None) -> str:
 
 
 def _join(preamble: str, parts: list[tuple[str, str]]) -> str:
-    return preamble.rstrip() + "\n" + "".join(f"\n## {n}. {t}{b if b.startswith(chr(10)) else chr(10) + b}"
+    """One blank line around every heading, however many the bodies carried in."""
+    return preamble.rstrip() + "\n" + "".join(f"\n## {n}. {t}\n\n{b.strip()}\n"
                                                for n, (t, b) in enumerate(parts, 1)).rstrip() + "\n"

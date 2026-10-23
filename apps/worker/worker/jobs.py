@@ -1,4 +1,4 @@
-"""Job handlers: `analyze` (palette + vision tags + CLIP embeddings + thumbnail) and `cluster`."""
+"""Job handlers: `analyze` (palette + vision tags + CLIP embeddings + thumbnail), `cluster`, `spec`."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from .db import Supabase, in_list
 from .embed import get_clip
 from .naming import name_clusters
 from .palette import extract_palette
+from .spec import run_spec_job
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +59,9 @@ class Worker:
                 self.analyze(job["user_id"], job["reference_id"])
             elif job["kind"] == "cluster":
                 self.cluster(job["user_id"], job["board_id"])
+            elif job["kind"] == "spec":
+                self._wait_for_analyses(job["board_id"])
+                run_spec_job(self.settings, self.db, job["user_id"], job["board_id"], job.get("params") or {})
             self.db.update("jobs", {"id": f"eq.{job['id']}"}, {"status": "done", "error": None, "updated_at": _now()})
             log.info("job %s %s done", job["kind"], job["id"])
         except Defer as wait:
@@ -197,6 +201,14 @@ class Worker:
                     if "23505" not in str(err):  # already queued
                         raise
 
+    def _wait_for_analyses(self, board_id: str, ids: list[str] | None = None) -> None:
+        """Clustering and specs need every reference analysed: defer while analyses are pending."""
+        if ids is None:
+            ids = [i["reference_id"] for i in self.db.select("board_items", {"board_id": f"eq.{board_id}", "select": "reference_id"})]
+        if ids and self.db.select("jobs", {"kind": "eq.analyze", "status": "in.(pending,running)",
+                                           "reference_id": in_list(ids), "select": "id", "limit": "1"}):
+            raise Defer("references on this board are still being analysed", seconds=30)
+
     # ---------- cluster ----------
 
     def cluster(self, user_id: str, board_id: str) -> None:
@@ -204,11 +216,8 @@ class Worker:
         ids_on_board = [i["reference_id"] for i in items]
         if not ids_on_board:
             return
-        waiting = self.db.select("jobs", {"kind": "eq.analyze", "status": "in.(pending,running)",
-                                          "reference_id": in_list(ids_on_board), "select": "id", "limit": "1"})
-        if waiting:
-            raise Defer("references on this board are still being analysed", seconds=30)
-        emb = self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "select": "reference_id,image_embedding,text_embedding"})
+        self._wait_for_analyses(board_id, ids_on_board)
+        emb =self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "select": "reference_id,image_embedding,text_embedding"})
         ana = {a["reference_id"]: a for a in self.db.select("analyses", {"reference_id": in_list(ids_on_board), "select": "reference_id,tags,mood,caption"})}
 
         ids, vectors = [], []

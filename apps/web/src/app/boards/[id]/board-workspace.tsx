@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Board, BoardItem } from "@justcreate/shared";
@@ -109,6 +110,12 @@ export function BoardWorkspace({
           </div>
           <Toggle label="Library" on={showLibrary} onClick={() => setShowLibrary((v) => !v)} />
           <Toggle label="Clusters" on={showClusters} onClick={() => setShowClusters((v) => !v)} />
+          <Link
+            href={`/boards/${board.id}/spec`}
+            className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background"
+          >
+            design.md
+          </Link>
           <button
             onClick={() => {
               if (window.confirm(`Delete board “${board.name}”? Its references stay in your library.`)) {

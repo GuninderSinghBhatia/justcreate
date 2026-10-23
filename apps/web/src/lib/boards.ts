@@ -57,5 +57,5 @@ export async function touchBoard(supabase: SupabaseClient, userId: string, board
   let query = supabase.from("board_items").select("reference_id", { count: "exact", head: true }).eq("board_id", boardId);
   if (board.clustered_at) query = query.gt("created_at", board.clustered_at);
   const { count } = await query;
-  if ((count ?? 0) >= RECLUSTER_AFTER) await enqueueJob(userId, "cluster", { boardId });
+  if ((count ?? 0) >= RECLUSTER_AFTER) await enqueueJob(userId, "cluster", { boardId }).catch((e) => console.error(e));
 }

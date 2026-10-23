@@ -90,7 +90,8 @@ export async function saveCapture(
     const reference = data as Reference;
 
     if (payload.boardId) await addToBoard(supabase, userId, payload.boardId, [reference]);
-    await enqueueJob(userId, "analyze", { referenceId: reference.id });
+    // Analysis is best effort here: the capture is saved either way.
+    await enqueueJob(userId, "analyze", { referenceId: reference.id }).catch((e) => console.error(e));
     return reference;
   } catch (err) {
     if (uploaded.length) await supabase.storage.from(CAPTURES_BUCKET).remove(uploaded);

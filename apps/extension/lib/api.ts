@@ -10,7 +10,7 @@ export type UploadResult =
 
 class RetryableError extends Error {}
 
-async function post(payload: CapturePayload, file?: Blob): Promise<void> {
+async function post(payload: CapturePayload, file?: Blob, thumbnail?: Blob): Promise<void> {
   const token = await getAccessToken().catch(() => {
     throw new RetryableError('Could not reach JUSTCREATE');
   });
@@ -19,6 +19,7 @@ async function post(payload: CapturePayload, file?: Blob): Promise<void> {
   const form = new FormData();
   form.set('meta', JSON.stringify(payload));
   if (file) form.set('file', file);
+  if (thumbnail) form.set('thumbnail', thumbnail);
 
   let res: Response;
   try {
@@ -39,14 +40,14 @@ async function post(payload: CapturePayload, file?: Blob): Promise<void> {
   throw new Error(reason);
 }
 
-export async function upload(payload: CapturePayload, file?: Blob): Promise<UploadResult> {
+export async function upload(payload: CapturePayload, file?: Blob, thumbnail?: Blob): Promise<UploadResult> {
   try {
-    await post(payload, file);
+    await post(payload, file, thumbnail);
     return { status: 'saved' };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     if (!(err instanceof RetryableError)) return { status: 'failed', reason };
-    await enqueue({ id: crypto.randomUUID(), payload, file, attempts: 0, createdAt: Date.now() });
+    await enqueue({ id: crypto.randomUUID(), payload, file, thumbnail, attempts: 0, createdAt: Date.now() });
     return { status: 'queued', reason };
   }
 }
@@ -59,7 +60,7 @@ export async function flushQueue(): Promise<number> {
   let saved = 0;
   for (const item of items) {
     try {
-      await post(item.payload, item.file);
+      await post(item.payload, item.file, item.thumbnail);
       await dequeue(item.id);
       saved++;
     } catch (err) {
@@ -72,4 +73,30 @@ export async function flushQueue(): Promise<number> {
     }
   }
   return saved;
+}
+
+export interface BoardSummary {
+  id: string;
+  name: string;
+}
+
+/** The user's boards, for the popup's board picker. */
+export async function listBoards(): Promise<BoardSummary[]> {
+  const token = await getAccessToken();
+  if (!token) return [];
+  const res = await fetch(`${APP_URL}/api/boards`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) return [];
+  return ((await res.json()) as { boards: BoardSummary[] }).boards;
+}
+
+const BOARD_KEY = 'defaultBoardId';
+
+/** Board that saves go to (chosen in the popup). Unset → the inbox. */
+export async function getDefaultBoard(): Promise<string | undefined> {
+  return ((await browser.storage.local.get(BOARD_KEY))[BOARD_KEY] as string | undefined) || undefined;
+}
+
+export async function setDefaultBoard(boardId: string | null) {
+  if (boardId) await browser.storage.local.set({ [BOARD_KEY]: boardId });
+  else await browser.storage.local.remove(BOARD_KEY);
 }

@@ -56,6 +56,8 @@ export type BackgroundRequest =
   | { kind: 'savePage'; note?: string; tabId: number }
   | { kind: 'screenshot'; mode: ScreenshotMode; note?: string; tabId: number }
   | { kind: 'retryQueue' }
+  | { kind: 'boards' }
+  | { kind: 'setBoard'; boardId: string | null }
   | { kind: 'disconnect' }
   | { kind: 'connected'; session: import('@justcreate/shared').ExtensionSession };
 
@@ -63,4 +65,6 @@ export interface StatusResponse {
   connected: boolean;
   email?: string;
   queued: number;
+  /** Board saves go to; undefined → inbox. */
+  boardId?: string;
 }

@@ -16,6 +16,8 @@ async function init() {
   $('email').textContent = status.email ?? '';
   renderQueue(status.queued);
 
+  if (status.connected) void loadBoards(status.boardId);
+
   const url = tab?.url ?? '';
   $('page-kind').textContent = isYouTube(url)
     ? 'YouTube video detected: saves title, channel, thumbnail and current timestamp.'
@@ -53,6 +55,14 @@ async function init() {
       window.close();
     });
   }
+}
+
+async function loadBoards(current?: string) {
+  const select = $<HTMLSelectElement>('board');
+  const { boards } = await ask<{ boards: { id: string; name: string }[] }>({ kind: 'boards' });
+  for (const b of boards) select.add(new Option(b.name, b.id));
+  select.value = boards.some((b) => b.id === current) ? current! : '';
+  select.addEventListener('change', () => void ask({ kind: 'setBoard', boardId: select.value || null }));
 }
 
 function renderQueue(count: number) {

@@ -8,6 +8,7 @@ Decisions: Claude builds everything, full phase order, personal tool first. AI r
 
 | Piece | Command | Notes |
 |---|---|---|
+| Web + worker | `npm run dev` | Both in one terminal (or `dev:web` / `dev:worker` separately) |
 | Web app | `npm run dev:web` | http://localhost:3100 (3000 is used by another local project) |
 | Worker | `cd apps/worker && uv run python -m worker serve` | Polls the `jobs` table; web app pokes `WORKER_URL/wake` |
 | Extension | `npm run build -w extension` → load `apps/extension/.output/chrome-mv3` unpacked | Reload it on `chrome://extensions` after every rebuild |
@@ -98,7 +99,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Code on GitHub (private): https://github.com/GuninderSinghBhatia/justcreate — CI green (web, extension, MCP, worker)
 - [x] Supabase secret key rotated (new key `justcreate_server` in `.env.local`, everything verified on it)
 - [x] Old leaked secret key deleted (you)
-- [ ] Worker on Render: `render.yaml` Blueprint ready (paid 1c-2g instance, CLIP needs ~1 GB); web app stays local for now
+- [x] Decision: run locally for now (`npm run dev` starts web + worker). `render.yaml` is ready for when the worker should run without your laptop (needs a paid ~2 GB instance)
 - [ ] 60-second demo video for the landing page; launch posts
 - [ ] Optional: publish `@justcreate/mcp` to npm so setup is `npx -y @justcreate/mcp`
 

@@ -15,6 +15,15 @@ type Tool =
   | "selection" | "rectangle" | "diamond" | "ellipse" | "arrow" | "line" | "freedraw" | "text"
   | "hand" | "image" | "eraser" | "frame" | "embeddable" | "laser";
 
+/** Canvas colours (globals.css: .board-canvas[data-paper]); sage is the default. */
+export const PAPERS = [
+  { key: "sage", name: "Sage", swatch: "#e3e9dd" },
+  { key: "slate", name: "Slate", swatch: "#e2e7ee" },
+  { key: "blush", name: "Blush", swatch: "#f1e3e0" },
+  { key: "paper", name: "Paper", swatch: "#f5efe3" },
+] as const;
+export type Paper = (typeof PAPERS)[number]["key"];
+
 export interface ActiveTool {
   type: string;
   locked: boolean;
@@ -35,7 +44,17 @@ const MORE: Tool[] = ["hand", "image", "eraser", "frame", "embeddable", "laser"]
 /** Tools on Excalidraw's own (hidden) bar; the rest are set through the API. */
 const BUILT_IN = new Set<Tool>(["selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "hand", "image", "eraser"]);
 
-export function ToolStrip({ api, active }: { api: ExcalidrawImperativeAPI | null; active: ActiveTool }) {
+export function ToolStrip({
+  api,
+  active,
+  paper,
+  onPaper,
+}: {
+  api: ExcalidrawImperativeAPI | null;
+  active: ActiveTool;
+  paper: Paper;
+  onPaper: (paper: Paper) => void;
+}) {
   const root = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<"shapes" | "lines" | "more" | null>(null);
   const [shape, setShape] = useState<Tool>("rectangle");
@@ -135,6 +154,23 @@ export function ToolStrip({ api, active }: { api: ExcalidrawImperativeAPI | null
               <span className={`grid size-3.5 place-items-center rounded-sm border ${active.locked ? "bg-current" : ""}`} />
               Keep tool active
             </button>
+            <div className="my-1 h-px bg-current opacity-10" />
+            <div role="radiogroup" aria-label="Canvas colour" className="flex items-center gap-2 px-2 py-1.5 text-xs">
+              <span className="flex-1">Canvas</span>
+              {PAPERS.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={paper === p.key}
+                  aria-label={p.name}
+                  title={p.name}
+                  onClick={() => onPaper(p.key)}
+                  className={`size-5 rounded-full border border-black/15 ${paper === p.key ? "ring-2 ring-current ring-offset-1 ring-offset-(--strip-bg)" : "hover:scale-110"}`}
+                  style={{ background: p.swatch }}
+                />
+              ))}
+            </div>
           </Flyout>
         )}
       </div>

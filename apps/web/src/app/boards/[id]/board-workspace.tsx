@@ -67,7 +67,7 @@ export function BoardWorkspace({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b border-foreground/10 px-4 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-3 border-b border-foreground/20 px-4 py-2 text-sm">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -80,7 +80,7 @@ export function BoardWorkspace({
           value={board.id}
           onChange={(e) => router.push(`/boards/${e.target.value}`)}
           aria-label="Switch board"
-          className="rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-xs"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1 text-xs"
         >
           {boards.map((b) => (
             <option key={b.id} value={b.id}>
@@ -95,7 +95,7 @@ export function BoardWorkspace({
               {saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save" : "Saved"}
             </span>
           )}
-          <div role="tablist" className="flex overflow-hidden rounded-md border border-foreground/20 text-xs">
+          <div role="tablist" className="flex overflow-hidden rounded-md sketch border-foreground/70 text-xs">
             {(["canvas", "grid"] as const).map((v) => (
               <button
                 key={v}

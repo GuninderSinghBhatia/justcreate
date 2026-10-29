@@ -22,7 +22,7 @@ export function ReferenceCard({
         selected ? "border-foreground" : "border-foreground/10 hover:border-foreground/30"
       }`}
     >
-      <button type="button" onClick={() => onOpen?.(r)} className="block w-full text-left">
+      <button type="button" onClick={() => onOpen?.(r)} className="block w-full text-left font-sans">
         {r.imageUrl ? (
           <span className="relative block">
             {/* eslint-disable-next-line @next/next/no-img-element -- signed Supabase URLs, sizes unknown */}
@@ -38,7 +38,7 @@ export function ReferenceCard({
           meta.text && <p className="line-clamp-6 whitespace-pre-line p-3 text-sm">{meta.text}</p>
         )}
         <span className="flex flex-col gap-1 p-3 text-xs">
-          <span className="flex items-center justify-between gap-2">
+          <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="rounded bg-foreground/10 px-1.5 py-0.5 uppercase tracking-wide">{r.type}</span>
             <time className="text-foreground/50" dateTime={r.created_at}>
               {new Date(r.created_at).toLocaleDateString()}
@@ -55,7 +55,7 @@ export function ReferenceCard({
           {(r.labels.length > 0 || (r.analysis?.tags.length ?? 0) > 0) && (
             <span className="flex flex-wrap gap-1">
               {r.labels.map((l) => (
-                <span key={l} className="rounded-full border border-foreground/30 px-1.5">
+                <span key={l} className="rounded-full sketch border-foreground/80 px-1.5">
                   {l}
                 </span>
               ))}

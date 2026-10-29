@@ -81,12 +81,12 @@ export function SpecEditor({
     <div className="flex min-h-0 flex-1 flex-col">
       {running && <AutoRefresh intervalMs={3000} />}
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-foreground/10 px-4 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 border-b border-foreground/20 px-4 py-2 text-xs">
         <details className="relative">
           <summary className="cursor-pointer list-none rounded-md bg-foreground px-3 py-1.5 font-medium text-background">
             {versions.length ? "Regenerate all…" : "Generate design.md…"}
           </summary>
-          <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-foreground/15 bg-background p-3 shadow-lg">
+          <div className="absolute left-0 z-20 mt-1 w-72 rounded-md sketch border-foreground/70 bg-background p-3 shadow-lg">
             <p className="mb-2 text-foreground/60">
               Uses accepted clusters by default (or the whole board). Pick clusters to focus the spec:
             </p>
@@ -116,7 +116,7 @@ export function SpecEditor({
           value={section}
           onChange={(e) => setSection(e.target.value)}
           aria-label="Section to regenerate"
-          className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1.5"
         >
           {SPEC_SECTIONS.map(([key, title]) => (
             <option key={key} value={key}>
@@ -127,7 +127,7 @@ export function SpecEditor({
         <button
           disabled={pending || running || dirty || !versions.length}
           onClick={() => run(() => regenerateSection(boardId, section), "Section rewrite queued.")}
-          className="rounded-md border border-foreground/20 px-2 py-1.5 disabled:opacity-50"
+          className="rounded-md sketch border-foreground/70 px-2 py-1.5 disabled:opacity-50"
           title={dirty ? "Save your edits first: the rewrite builds on the saved version" : undefined}
         >
           Regenerate section
@@ -137,17 +137,17 @@ export function SpecEditor({
         <button
           disabled={pending || !dirty || running}
           onClick={() => run(() => saveSpecEdit(boardId, text), "Saved as a new version.")}
-          className="rounded-md border border-foreground/20 px-2 py-1.5 disabled:opacity-50"
+          className="rounded-md sketch border-foreground/70 px-2 py-1.5 disabled:opacity-50"
         >
           Save version
         </button>
-        <button disabled={!text} onClick={download} className="rounded-md border border-foreground/20 px-2 py-1.5 disabled:opacity-50">
+        <button disabled={!text} onClick={download} className="rounded-md sketch border-foreground/70 px-2 py-1.5 disabled:opacity-50">
           Download .md
         </button>
         <button
           disabled={!text}
           onClick={() => navigator.clipboard.writeText(text).then(() => setMessage("Copied to clipboard."))}
-          className="rounded-md border border-foreground/20 px-2 py-1.5 disabled:opacity-50"
+          className="rounded-md sketch border-foreground/70 px-2 py-1.5 disabled:opacity-50"
         >
           Copy
         </button>
@@ -158,7 +158,7 @@ export function SpecEditor({
               value={version?.version ?? ""}
               onChange={(e) => router.push(`${pathname}?v=${e.target.value}`)}
               aria-label="Version"
-              className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5"
+              className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1.5"
             >
               {versions.map((s) => (
                 <option key={s.version} value={s.version}>
@@ -167,7 +167,7 @@ export function SpecEditor({
               ))}
             </select>
           )}
-          <div role="tablist" className="flex overflow-hidden rounded-md border border-foreground/20">
+          <div role="tablist" className="flex overflow-hidden rounded-md sketch border-foreground/70">
             {(["edit", "split", "preview"] as const).map((v) => (
               <button
                 key={v}
@@ -184,7 +184,7 @@ export function SpecEditor({
       </div>
 
       {(running || message || (job?.status === "failed" && job.error) || !isLatest || dirty) && (
-        <p role="status" className="border-b border-foreground/10 px-4 py-1.5 text-xs text-foreground/70">
+        <p role="status" className="border-b border-foreground/20 px-4 py-1.5 text-xs text-foreground/70">
           {running
             ? `Generating${job?.section ? ` “${SPEC_SECTIONS.find(([k]) => k === job.section)?.[1]}”` : ""}… the page updates when it's done.`
             : job?.status === "failed" && job.error

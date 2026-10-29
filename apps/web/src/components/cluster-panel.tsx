@@ -58,14 +58,14 @@ export function ClusterPanel({
   const analysed = [...references.values()].filter((r) => r.analysis).length;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-foreground/10 bg-background text-sm">
-      <div className="flex flex-col gap-2 border-b border-foreground/10 p-3">
+    <aside className="flex w-80 shrink-0 flex-col border-l border-foreground/20 bg-background text-sm">
+      <div className="flex flex-col gap-2 border-b border-foreground/20 p-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Clusters</h2>
           <button
             onClick={() => run(() => reclusterBoard(boardId))}
             disabled={pending || clustering}
-            className="rounded-md border border-foreground/20 px-2 py-1 text-xs disabled:opacity-50"
+            className="rounded-md sketch border-foreground/70 px-2 py-1 text-xs disabled:opacity-50"
           >
             {clustering ? "Clustering…" : "Re-cluster"}
           </button>
@@ -108,7 +108,7 @@ export function ClusterPanel({
           />
         ))}
         {rejected.length > 0 && (
-          <li className="border-t border-foreground/10 p-3 text-xs">
+          <li className="border-t border-foreground/20 p-3 text-xs">
             <button onClick={() => setShowRejected((v) => !v)} className="text-foreground/60 underline">
               {showRejected ? "Hide" : "Show"} {rejected.length} rejected
             </button>
@@ -155,7 +155,7 @@ function ClusterRow({
   const addable = selection.filter((id) => !memberIds.includes(id));
 
   return (
-    <li className={`border-b border-foreground/10 p-3 ${c.status === "suggested" ? "border-l-2 border-l-dashed border-l-foreground/40" : ""}`}>
+    <li className={`border-b border-foreground/20 p-3 ${c.status === "suggested" ? "border-l-2 border-l-dashed border-l-foreground/40" : ""}`}>
       <div className="flex items-start gap-2">
         <input type="checkbox" checked={merging} onChange={onToggleMerge} aria-label={`Select ${c.name} for merge`} className="mt-1" />
         <div className="min-w-0 flex-1">
@@ -167,7 +167,7 @@ function ClusterRow({
                 run(() => renameCluster(c.id, name));
               }}
             >
-              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setEditing(false)} className="w-full rounded border border-foreground/20 bg-transparent px-1" />
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setEditing(false)} className="w-full rounded sketch border-foreground/70 bg-transparent px-1" />
             </form>
           ) : (
             <button onClick={() => onFocus(memberIds)} className="text-left font-medium hover:underline" title="Show on canvas">
@@ -262,9 +262,9 @@ function NewClusterForm({ count, onCreate }: { count: number; onCreate: (name: s
         onChange={(e) => setName(e.target.value)}
         placeholder={`Name for ${count} selected`}
         aria-label="New cluster name"
-        className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-xs"
+        className="min-w-0 flex-1 rounded-md sketch border-foreground/70 bg-transparent px-2 py-1 text-xs"
       />
-      <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs">Make cluster</button>
+      <button className="rounded-md sketch border-foreground/70 px-2 py-1 text-xs">Make cluster</button>
     </form>
   );
 }

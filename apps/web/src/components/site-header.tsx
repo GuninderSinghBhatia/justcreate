@@ -3,7 +3,7 @@ import Link from "next/link";
 export function SiteHeader({ email }: { email?: string }) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3 sm:px-6">
-      <Link href="/boards" className="font-semibold tracking-tight">
+      <Link href="/boards" className="font-hand text-lg">
         JUSTCREATE
       </Link>
       <nav className="flex items-center gap-4 text-sm">

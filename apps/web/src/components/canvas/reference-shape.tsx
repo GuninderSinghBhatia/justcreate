@@ -53,7 +53,7 @@ function ReferenceCardShape({ shape }: { shape: ReferenceShape }) {
   return (
     <HTMLContainer
       style={{ width: w, height: h, pointerEvents: "all" }}
-      className="overflow-hidden rounded-lg border border-foreground/15 bg-background shadow-sm"
+      className="overflow-hidden rounded-lg sketch border-foreground/70 bg-background shadow-sm"
     >
       <div className="relative bg-foreground/5" style={{ height: h - FOOTER }}>
         {r?.imageUrl ? (

@@ -22,7 +22,7 @@ export function LoginForm({ next }: { next: string }) {
           type="email"
           required
           autoComplete="email"
-          className="rounded-md border border-foreground/20 bg-transparent px-3 py-2"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-3 py-2"
         />
       </label>
       <button

@@ -21,7 +21,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-nunito), system-ui, sans-serif;
-  --font-hand: var(--font-excalifont), var(--font-nunito), cursive;
+  --font-hand: var(--font-virgil), var(--font-nunito), cursive;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -54,7 +54,7 @@ body {
 @layer base {
   h1, h2, h3, h4, button, summary, nav, th, label, select, [role="tab"], .font-hand {
     font-family: var(--font-hand);
-    font-size-adjust: 0.5; /* Excalifont's x-height runs small: match Nunito's apparent size */
+    font-size-adjust: 0.5; /* Virgil's x-height runs small: match Nunito's apparent size */
     font-synthesis: none; /* one weight only: never smear a fake bold; size carries hierarchy */
   }
   input, textarea { font-family: var(--font-sans); font-size-adjust: none; }

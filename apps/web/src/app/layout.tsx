@@ -3,10 +3,10 @@ import { Geist_Mono, Nunito } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 
-// Excalidraw's hand-drawn face (OFL-1.1, see fonts/OFL.txt) for headings and UI labels.
-const excalifont = localFont({
-  src: "./fonts/Excalifont-Regular.woff2",
-  variable: "--font-excalifont",
+// Virgil, Excalidraw's original hand-drawn face (OFL-1.1, see fonts/OFL.txt), for headings and UI labels.
+const virgil = localFont({
+  src: "./fonts/Virgil-Regular.woff2",
+  variable: "--font-virgil",
   display: "swap",
 });
 
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${excalifont.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${virgil.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

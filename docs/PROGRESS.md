@@ -35,7 +35,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Shortcuts Alt+Shift+S / Alt+Shift+R, toast, offline queue (IndexedDB, retried every minute)
 - [x] Every capture queues an `analyze` job
 - [x] Tested: API e2e script, Playwright extension run (8/8), live X selectors
-- [ ] Extension ↔ your Chrome: `/connect` didn't get an answer from the extension in your profile — reload the extension on `chrome://extensions` and open `/connect` again; the page now says exactly what failed
+- [x] Extension ↔ your Chrome: connected (confirmed on `/connect`, 2026-10-23)
 - [ ] Offline queue not exercised by automation
 
 ## Phase 2 — Boards, canvas, grid

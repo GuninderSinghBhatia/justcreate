@@ -292,9 +292,10 @@ export function BoardCanvas({
           { clientX: st.offsetLeft + st.width / 2, clientY: st.offsetTop + st.height / 2 },
           st,
         );
-        // Cascade images added in a row so they don't land exactly on top of each other.
-        const offset = (cascade.current++ % 8) * 36;
-        place(api, reference, center.x + offset, center.y + offset);
+        // Scatter images added in a row around the centre so they don't stack up.
+        const spread = Math.min(cascade.current++, 6) * 60;
+        const jitter = () => (Math.random() - 0.5) * 2 * (40 + spread);
+        place(api, reference, center.x + jitter(), center.y + jitter());
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onReady is an inline callback
@@ -349,11 +350,20 @@ function imageSkeleton(referenceId: string, x: number, y: number, w: number, h: 
     y,
     width: w,
     height: h,
+    angle: tiltFor(referenceId),
     // One file per reference; duplicates of the image share it.
     fileId: `ref-${referenceId}` as FileId,
     status: "saved" as const,
     customData: { referenceId },
   };
+}
+
+/** A slight tilt of up to ±2.5°, the same for a reference every time, so the board looks pinned up by hand. */
+function tiltFor(referenceId: string) {
+  let hash = 0;
+  for (const c of referenceId) hash = (hash * 31 + c.charCodeAt(0)) | 0;
+  const degrees = ((Math.abs(hash) % 51) - 25) / 10;
+  return ((degrees * Math.PI) / 180) as ExcalidrawElement["angle"];
 }
 
 /** The reference's thumbnail as a data URL (so exports and copies work), or a text card when it has no image. */

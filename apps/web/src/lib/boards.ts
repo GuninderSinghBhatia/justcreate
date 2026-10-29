@@ -27,11 +27,39 @@ export async function homeBoard(supabase: SupabaseClient, userId: string): Promi
   if (error) throw new Error(`Couldn't create your board: ${error.message}`);
   return created;
 }
-const COLUMNS = 6;
+/** Width of the area new cards are scattered over, about five cards across. */
+const SPREAD = 5 * (CARD_WIDTH + GAP);
+const TRIES = 120;
+
+type Box = { x: number; y: number; w: number; h: number };
+
+const overlaps = (a: Box, b: Box) =>
+  a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP;
 
 /**
- * Places references on a board below whatever is already there, in a simple grid.
- * The canvas creates card shapes for any board_items it doesn't have yet.
+ * A free spot for a card, moodboard-style: random positions across the board's width, preferring
+ * ones near the top so the board fills its gaps instead of growing a line downwards.
+ */
+function freeSpot(boxes: Box[], w: number, h: number): { x: number; y: number } {
+  const left = boxes.length ? Math.min(...boxes.map((b) => b.x)) : 0;
+  const top = boxes.length ? Math.min(...boxes.map((b) => b.y)) : 0;
+  const bottom = boxes.length ? Math.max(...boxes.map((b) => b.y + b.h)) : 0;
+  let best: { x: number; y: number; score: number } | null = null;
+  for (let i = 0; i < TRIES; i++) {
+    const x = Math.round(left + Math.random() * (SPREAD - w));
+    const y = Math.round(top + Math.random() * (bottom - top + h));
+    if (boxes.some((b) => overlaps(b, { x, y, w, h }))) continue;
+    const score = y + Math.random() * 240; // mostly the highest spot, with some wander
+    if (!best || score < best.score) best = { x, y, score };
+  }
+  if (best) return best;
+  // The area is full: start a loose new row below it.
+  return { x: Math.round(left + Math.random() * (SPREAD - w)), y: Math.round(bottom + GAP + Math.random() * 60) };
+}
+
+/**
+ * Places references on a board in free spots around what's already there, at slightly varied
+ * sizes. The canvas creates images for any board_items it doesn't have yet.
  */
 export async function addToBoard(
   supabase: SupabaseClient,
@@ -42,24 +70,21 @@ export async function addToBoard(
   if (!references.length) return;
   const { data: existing } = await supabase
     .from("board_items")
-    .select("reference_id, y, h")
+    .select("reference_id, x, y, w, h")
     .eq("board_id", boardId);
   const taken = new Set((existing ?? []).map((i) => i.reference_id));
   const fresh = references.filter((r) => !taken.has(r.id));
   if (!fresh.length) return;
 
-  const top = Math.max(0, ...(existing ?? []).map((i) => i.y + i.h + GAP));
-  const rows = fresh.map((r, n) => {
-    const { w, h } = cardSize(r.metadata);
-    return {
-      board_id: boardId,
-      reference_id: r.id,
-      user_id: userId,
-      x: (n % COLUMNS) * (CARD_WIDTH + GAP),
-      y: top + Math.floor(n / COLUMNS) * (440 + GAP),
-      w,
-      h,
-    };
+  const boxes: Box[] = [...(existing ?? [])];
+  const rows = fresh.map((r) => {
+    const size = cardSize(r.metadata);
+    const scale = 0.85 + Math.random() * 0.4;
+    const w = Math.round(size.w * scale);
+    const h = Math.round(size.h * scale);
+    const spot = freeSpot(boxes, w, h);
+    boxes.push({ ...spot, w, h });
+    return { board_id: boardId, reference_id: r.id, user_id: userId, x: spot.x, y: spot.y, w, h };
   });
   const { error } = await supabase.from("board_items").insert(rows);
   if (error) throw new Error(`Couldn't add to board: ${error.message}`);

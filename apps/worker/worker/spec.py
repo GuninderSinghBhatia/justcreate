@@ -275,7 +275,8 @@ def _reference_line(board: Board, ref_id: str) -> str:
     r, a = board.refs[ref_id], board.analyses.get(ref_id) or {}
     obs, inf = a.get("observed") or {}, a.get("inferred") or {}
     parts = [f"[ref:{board.short[ref_id]}] {r['type']}: {r.get('title') or 'untitled'}"]
-    for label, value in [("caption", a.get("caption")), ("tags", a.get("tags")), ("palette", a.get("palette")),
+    styles = [s.get("name") for s in inf.get("styles") or [] if isinstance(s, dict)]
+    for label, value in [("design style", styles), ("caption", a.get("caption")), ("tags", a.get("tags")), ("palette", a.get("palette")),
                          ("typography (observed)", obs.get("typography")), ("layout (observed)", obs.get("layout")),
                          ("components", a.get("components")), ("effects", a.get("effects")),
                          ("fonts (inferred)", inf.get("font_guesses")), ("motion (inferred)", inf.get("motion_hints")),

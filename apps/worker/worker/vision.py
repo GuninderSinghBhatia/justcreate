@@ -7,13 +7,16 @@ intent). design.md generation (Phase 4) relies on keeping the two apart.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 from PIL import Image
 from pydantic import BaseModel, Field
 
 from .config import Settings
 from .llm import structured
+from .styles import STYLE_NAMES
+
+DesignStyle = Literal[STYLE_NAMES]  # the taxonomy in styles.py: the model picks from it, never free text
 
 
 class Observed(BaseModel):
@@ -39,6 +42,9 @@ class ReferenceAnalysis(BaseModel):
     summary: str = Field(description="2-3 sentences on the visual style and why it is distinctive")
     style_tags: list[str] = Field(description="5-10 short lowercase style tags, e.g. 'dark ui', 'neon', 'brutalist', 'editorial'")
     mood: list[str] = Field(description="2-4 mood words")
+    design_styles: list[DesignStyle] = Field(
+        description="1-3 named design styles from the list that this reference most clearly is, best first; "
+                    "[] when none fits (e.g. a plain photo)")
     observed: Observed
     inferred: Inferred
 
@@ -72,6 +78,7 @@ def analyze_heuristic(palette: list[str], context: dict[str, Any]) -> ReferenceA
         summary="Automatic tags from metadata and colours (no AI key configured).",
         style_tags=tags,
         mood=tone[:2],
+        design_styles=[],
         observed=Observed(colors=palette, typography=[], layout="", components=[], effects=[]),
         inferred=Inferred(font_guesses=[], motion_hints=[], purpose=""),
     )

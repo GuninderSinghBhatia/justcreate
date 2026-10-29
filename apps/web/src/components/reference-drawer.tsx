@@ -139,6 +139,21 @@ export function ReferenceDrawer({
         {r.analysis && (
           <section className="flex flex-col gap-2 border-t border-foreground/20 pt-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">AI analysis</h3>
+            {r.analysis.styles && r.analysis.styles.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5" aria-label="Design style">
+                {r.analysis.styles.map((s, i) => (
+                  <span
+                    key={s.key}
+                    title={`Style match ${Math.round(s.score * 100)}%`}
+                    className={`rounded-full px-2.5 py-0.5 font-sans text-xs ${
+                      i === 0 ? "bg-(--strip-on) font-semibold text-(--strip-on-text)" : "border border-foreground/15 text-foreground/70"
+                    }`}
+                  >
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            )}
             {r.analysis.caption && <p className="text-foreground/80">{r.analysis.caption}</p>}
             {r.analysis.palette.length > 0 && (
               <div className="flex gap-1" aria-label="Palette">

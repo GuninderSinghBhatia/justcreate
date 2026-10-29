@@ -86,6 +86,8 @@ export function ClusterPanel({
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
+      <StyleIndex references={references} onFocus={onFocus} />
+
       <ul className="flex-1 overflow-y-auto">
         {visible.length === 0 && (
           <li className="p-3 text-xs text-foreground/50">
@@ -266,5 +268,42 @@ function NewClusterForm({ count, onCreate }: { count: number; onCreate: (name: s
       />
       <button className="rounded-md sketch border-foreground/70 px-2 py-1 text-xs">Make cluster</button>
     </form>
+  );
+}
+
+/**
+ * Every named design style found on the board, with how many references are it (top style) and
+ * how many lean that way (second style). One reference is enough to show up here, even though a
+ * cluster needs two. Clicking a style selects its references on the canvas.
+ */
+function StyleIndex({ references, onFocus }: { references: Map<string, ReferenceView>; onFocus: (ids: string[]) => void }) {
+  const styles = new Map<string, { name: string; top: string[]; also: string[] }>();
+  for (const r of references.values()) {
+    (r.analysis?.styles ?? []).forEach((s, i) => {
+      const entry = styles.get(s.key) ?? { name: s.name, top: [], also: [] };
+      (i === 0 ? entry.top : entry.also).push(r.id);
+      styles.set(s.key, entry);
+    });
+  }
+  const list = [...styles.values()].filter((s) => s.top.length).sort((a, b) => b.top.length - a.top.length || a.name.localeCompare(b.name));
+  if (!list.length) return null;
+  return (
+    <section aria-label="Styles on this board" className="border-b border-foreground/20 p-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">Styles on this board</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {list.map((s) => (
+          <button
+            key={s.name}
+            type="button"
+            onClick={() => onFocus([...s.top, ...s.also])}
+            title={s.also.length ? `${s.top.length} mainly, ${s.also.length} partly` : undefined}
+            className="bar-ctl inline-flex items-center gap-1 rounded-full border border-foreground/15 px-2.5 py-1 font-sans text-xs text-foreground/80 hover:border-foreground/40 hover:text-foreground"
+          >
+            {s.name}
+            <span className="text-foreground/40 tabular-nums">{s.top.length}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

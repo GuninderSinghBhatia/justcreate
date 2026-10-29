@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Board, BoardItem } from "@justcreate/shared";
@@ -11,6 +10,7 @@ import { ClusterPanel, type ClusterWithMembers } from "@/components/cluster-pane
 import { ReferenceDrawer } from "@/components/reference-drawer";
 import { ReferenceGrid } from "@/components/reference-grid";
 import { SiteHeader } from "@/components/site-header";
+import { BarDivider, BarIcon, BarLink, BarToggle, SaveStatus, Segmented } from "@/components/bar";
 import { addReferencesToBoard, renameBoard } from "@/lib/actions";
 import type { ReferenceView } from "@/lib/references";
 
@@ -74,36 +74,33 @@ export function BoardWorkspace({
           onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(name))}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
           aria-label="Board name"
-          className="field-sizing-content min-w-0 max-w-56 rounded border border-transparent bg-transparent px-1 font-semibold hover:border-foreground/20 focus:border-foreground/40"
+          className="field-sizing-content h-8 min-w-0 max-w-56 rounded-lg border border-transparent bg-transparent px-2 font-sans text-sm font-semibold hover:bg-foreground/[0.04] focus:border-foreground/25 focus:bg-transparent"
         />
-        <span className="hidden text-xs whitespace-nowrap text-foreground/50 sm:inline">{items.length} references</span>
-        <div className="ml-auto flex items-center gap-2">
-          {view === "canvas" && (
-            <span className="text-xs text-foreground/50" aria-live="polite">
-              {saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save" : "Saved"}
-            </span>
-          )}
-          <div role="tablist" className="flex overflow-hidden rounded-md sketch border-foreground/70 text-xs">
-            {(["canvas", "grid"] as const).map((v) => (
-              <button
-                key={v}
-                role="tab"
-                aria-selected={view === v}
-                onClick={() => switchView(v)}
-                className={`px-3 py-1 capitalize ${view === v ? "bg-foreground text-background" : ""}`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <Toggle label="References" on={showLibrary} onClick={() => setShowLibrary((v) => !v)} />
-          <Toggle label="Clusters" on={showClusters} onClick={() => setShowClusters((v) => !v)} />
-          <Link
-            href="/board/spec"
-            className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background"
-          >
+        <span className="hidden shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 font-sans text-xs whitespace-nowrap text-foreground/55 tabular-nums sm:inline">
+          {items.length} {items.length === 1 ? "reference" : "references"}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          {view === "canvas" && <SaveStatus state={saveState} />}
+          <Segmented
+            label="View"
+            value={view}
+            onChange={switchView}
+            options={[
+              { value: "canvas", label: "Canvas", icon: BarIcon.canvas },
+              { value: "grid", label: "Grid", icon: BarIcon.grid },
+            ]}
+          />
+          <BarDivider />
+          <BarToggle on={showLibrary} onClick={() => setShowLibrary((v) => !v)} icon={BarIcon.references}>
+            References
+          </BarToggle>
+          <BarToggle on={showClusters} onClick={() => setShowClusters((v) => !v)} icon={BarIcon.clusters}>
+            Clusters
+          </BarToggle>
+          <BarDivider />
+          <BarLink href="/board/spec" primary icon={BarIcon.doc}>
             design.md
-          </Link>
+          </BarLink>
         </div>
       </SiteHeader>
 
@@ -167,14 +164,3 @@ export function BoardWorkspace({
   );
 }
 
-function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={on}
-      className={`rounded-md border px-2 py-1 text-xs ${on ? "border-foreground/40" : "border-foreground/15 text-foreground/50"}`}
-    >
-      {label}
-    </button>
-  );
-}

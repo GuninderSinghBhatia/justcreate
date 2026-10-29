@@ -202,3 +202,6 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 }
 @keyframes spec-pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .spec-pulse { animation: none; } }
+
+/* Top-bar controls (components/bar.tsx) stay still: the pen wobble is for page buttons. */
+button.bar-ctl:hover, button.bar-ctl:active, a.bar-ctl:hover, a.bar-ctl:active { transform: none; }

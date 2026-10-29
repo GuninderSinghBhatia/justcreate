@@ -37,6 +37,7 @@ SECTIONS: list[tuple[str, str, str]] = [
     ("effects", "Visual effects", "Gradients, shadows, textures, borders, glass, glow — as concrete CSS-level values."),
     ("motion", "Animations and interactions", "Motion style, durations, easing, hover and transition patterns. Mostly Inferred unless visible."),
     ("responsive", "Responsive design", "How the direction adapts to mobile, tablet and desktop: breakpoints, what stacks, what scales."),
+    ("guardrails", "Do and don't", "Two short lists: **Do** (what keeps this direction recognisable) and **Don't** (what would break it — e.g. extra typefaces, drop shadows, off-palette accents). Each item cited or tagged Inferred."),
     ("implementation", "Implementation guidance", "Practical build steps, then a ```css :root {}``` block of design tokens (colours, fonts, spacing, radius, shadows) and a Tailwind theme.extend snippet."),
 ]
 TITLE = {key: title for key, title, _ in SECTIONS}
@@ -54,18 +55,32 @@ SYSTEM = (
     "Be specific and concrete — hex codes, px values, font names, durations — never generic adjectives. "
     "Rules: (1) Every claim cites one or more references inline as [ref:xxxxxx] using only the ids you are given, "
     "one id per bracket: [ref:a1b2c3] [ref:d4e5f6]. "
-    "(2) Tag every claim **Observed** (visible in the references or their analyses) or **Inferred** (your estimate). "
+    "(2) Tag every claim **Observed** only when the value is stated in the measured aggregates or a reference's analysis (its palette, caption, fonts, components); anything you derive or design yourself (px sizes, spacing, durations, z-index, CSS values) is **Inferred**. "
     "(3) Describe the style so it can be rebuilt; never copy logos, text or assets. "
     "(4) Write GitHub-flavoured markdown without top-level headings; tables and bullet lists are welcome."
 )
 
 
-def _section_model() -> type[BaseModel]:
-    fields = {key: (str, Field(description=f"Markdown body for '{title}'. {hint}")) for key, title, hint in SECTIONS}
-    return create_model("DesignSpecSections", **fields)
+def _section_model(keys: tuple[str, ...] | None = None, name: str = "DesignSpecSections") -> type[BaseModel]:
+    fields = {key: (str, Field(description=f"Markdown body for '{title}'. {hint}"))
+              for key, title, hint in SECTIONS if keys is None or key in keys}
+    return create_model(name, **fields)
 
 
 SpecSections = _section_model()
+
+# Groq's free tier allows ~8k tokens per minute, counting the output allowance: the document is
+# written a few sections at a time, each call sized to fit. Later batches see the palette and
+# type decisions already made, so tokens and components agree with them.
+SECTION_BATCHES: list[tuple[tuple[str, ...], int]] = [  # (sections, output tokens)
+    (("direction", "palette", "typography"), 3000),
+    (("layout", "components", "effects"), 3000),
+    (("motion", "responsive", "guardrails"), 2200),
+    (("implementation",), 3000),
+]
+GROQ_REQUEST_TOKENS = 7600  # under the 8k per-minute cap, with room for the schema
+CHARS_PER_TOKEN = 3.4  # rough, for sizing prompts (markdown, hex codes and JSON tokenise densely)
+CARRY = ("palette", "typography", "components")  # earlier sections later batches must agree with
 
 
 class ClusterBrief(BaseModel):
@@ -107,19 +122,19 @@ def run_spec_job(settings: Settings, db: Supabase, user_id: str, board_id: str, 
         if not current:
             section = None  # nothing to patch yet: generate the whole document
     if section:
-        body, model = _with_fallback(settings, lambda m: regenerate_section(settings, board, current["markdown"], section, m))
+        body, model, reason = _with_fallback(settings, lambda m: regenerate_section(settings, board, current["markdown"], section, m))
         if body is None:
-            raise RuntimeError("section regeneration failed: no LLM available")
+            raise RuntimeError(f"couldn't rewrite the section: {reason}")
         markdown = replace_section(current["markdown"], TITLE[section], clean_body(body, board, TITLE[section]))
         kind, extra = "section", {"section": section}
     else:
-        sections, model = _with_fallback(settings, lambda m: generate_sections(settings, db, board, m))
+        sections, model, reason = _with_fallback(settings, lambda m: generate_sections(settings, db, board, m))
         if sections is None:
             sections, model, kind = draft_sections(board), "draft-v1", "draft"
+            extra = {"fallback_reason": reason}
         else:
-            kind = "generated"
+            kind, extra = "generated", {}
         markdown = assemble(board, {k: clean_body(v, board, TITLE[k]) for k, v in sections.items()})
-        extra = {}
     markdown = with_reference_map(markdown, board)
     save_version(db, user_id, board_id, markdown, kind, {
         **extra, "model": model, "cluster_ids": params.get("cluster_ids") or [],
@@ -128,18 +143,31 @@ def run_spec_job(settings: Settings, db: Supabase, user_id: str, board_id: str, 
 
 
 def _with_fallback(settings: Settings, call):
-    """Main model, then the cheaper one (separate quota), then None (caller decides)."""
+    """Main model, then the cheaper one (separate quota). Returns (result, model, reason): result
+    is None when every model failed, with a short reason the page can show."""
     if not settings.provider:
-        return None, None
+        return None, None, "no AI model is configured"
     tried = []
     for model in dict.fromkeys([model_for(settings, "spec"), model_for(settings, "analysis")]):
         try:
-            return call(model), model
+            return call(model), model, None
         except Exception as err:  # noqa: BLE001 - quota/outage: try the next model
-            tried.append(f"{model}: {str(err)[:160]}")
+            tried.append(str(err))
             log.warning("spec generation with %s failed: %s", model, str(err)[:300])
-    log.warning("all models failed: %s", tried)
-    return None, None
+    log.warning("all models failed: %s", [t[:160] for t in tried])
+    return None, None, failure_reason(tried)
+
+
+def failure_reason(errors: list[str]) -> str:
+    """Provider errors → one line for people: on free tiers the usual cause is a used-up quota."""
+    text = " ".join(errors).lower()
+    if "per day" in text or "(tpd)" in text or "(rpd)" in text or "quota" in text:
+        return "the AI provider's daily limit is used up (it resets within a day)"
+    if "429" in text or "rate limit" in text:
+        return "the AI provider is rate-limiting requests right now"
+    if "413" in text or "too large" in text:
+        return "the request was too large for the AI model"
+    return "the AI model didn't respond"
 
 
 # ---------- data ----------
@@ -261,6 +289,8 @@ def _reference_line(board: Board, ref_id: str) -> str:
 
 def generate_sections(settings: Settings, db: Supabase, board: Board, model: str) -> dict[str, str]:
     agg = aggregate(board)
+    if settings.provider == "groq":
+        return generate_in_batches(settings, board, agg, model)
     budget = prompt_budget(settings)
     briefs = ""
     if len(board.groups) > 1:  # map: one brief per cluster
@@ -282,16 +312,54 @@ def generate_sections(settings: Settings, db: Supabase, board: Board, model: str
     return result.model_dump()
 
 
+def generate_in_batches(settings: Settings, board: Board, agg: dict, model: str) -> dict[str, str]:
+    """The whole document in SECTION_BATCHES calls, each prompt trimmed to fit one request."""
+    head = board_header(board, agg)
+    out: dict[str, str] = {}
+    for n, (keys, out_tokens) in enumerate(SECTION_BATCHES, 1):
+        earlier = "".join(f"\n## {TITLE[k]} (already written: stay consistent)\n{out[k][:1200]}\n" for k in CARRY if k in out)
+        ask = (f"\nWrite these sections of design.md: {', '.join(TITLE[k] for k in keys)}. "
+               "Keep each one tight (at most ~250 words): concrete values, tables and lists over prose; "
+               "every bullet and table row cites the references it comes from.")
+        room = _room(out_tokens, head, earlier, ask)
+        prompt = f"{head}\nReferences:\n{reference_lines(board, budget=room)}\n{earlier}{ask}"
+        schema = _section_model(keys, f"DesignSpecPart{n}")
+        out.update(structured(settings, "spec", SYSTEM, prompt, schema, model=model, max_tokens=out_tokens).model_dump())
+    return out
+
+
+def board_header(board: Board, agg: dict) -> str:
+    groups = "; ".join(f"“{name}” ({len(members)}): {' '.join(f'[ref:{board.short[r]}]' for r in members[:8])}"
+                       for name, members in board.groups)
+    return (f"Board: “{board.name}” — {len(board.refs)} references. Style families: {groups}.\n\n"
+            f"Measured aggregates (exact, from pixels and analyses):\n{json.dumps(agg, separators=(',', ':'))}\n")
+
+
+def _room(out_tokens: int, *fixed: str) -> int:
+    """Characters of reference lines that still fit in one Groq request beside the fixed text."""
+    used = (len(SYSTEM) + sum(len(f) for f in fixed)) / CHARS_PER_TOKEN + out_tokens + 400  # + schema
+    return max(1200, int((GROQ_REQUEST_TOKENS - used) * CHARS_PER_TOKEN))
+
+
 def regenerate_section(settings: Settings, board: Board, current_markdown: str, section: str, model: str) -> str:
     key, title, hint = next(s for s in SECTIONS if s[0] == section)
-    budget = prompt_budget(settings)  # the current document shares the budget with the references
+    agg = json.dumps(aggregate(board), separators=(',', ':'))
+    ask = f"Rewrite only the section “{title}”. {hint}"
+    if settings.provider == "groq":
+        # One request: the current document and the references share what's left after the answer.
+        out_tokens = 2600
+        doc_budget = max(2000, _room(out_tokens, agg, ask) // 2)
+        current = current_markdown[:doc_budget]
+        refs = reference_lines(board, budget=_room(out_tokens, agg, ask, current))
+    else:
+        out_tokens, budget = None, prompt_budget(settings)  # the current document shares the budget with the references
+        current, refs = current_markdown[:budget], reference_lines(board, budget=budget // 2)
     prompt = (
-        f"Board: “{board.name}”. Measured aggregates:\n{json.dumps(aggregate(board), separators=(',', ':'))}\n\n"
-        f"References:\n{reference_lines(board, budget=budget // 2)}\n\n"
-        f"Current design.md (the user may have edited it — stay consistent with it):\n{current_markdown[:budget]}\n\n"
-        f"Rewrite only the section “{title}”. {hint}"
+        f"Board: “{board.name}”. Measured aggregates:\n{agg}\n\n"
+        f"References:\n{refs}\n\n"
+        f"Current design.md (the user may have edited it — stay consistent with it):\n{current}\n\n{ask}"
     )
-    return structured(settings, "spec", SYSTEM, prompt, SectionText, model=model).markdown
+    return structured(settings, "spec", SYSTEM, prompt, SectionText, model=model, max_tokens=out_tokens).markdown
 
 
 def key_images(board: Board) -> list[str]:
@@ -341,6 +409,7 @@ def draft_sections(board: Board) -> dict[str, str]:
         "effects": "**Observed** effects:\n" + rows(agg["effects"]),
         "motion": "**Inferred**: no motion data in a draft; regenerate with a model.",
         "responsive": "**Inferred**: mobile-first; stack multi-column layouts below 768px.",
+        "guardrails": "**Inferred**: keep to the palette and fonts above; no new accent colours or typefaces without a reference.",
         "implementation": f"```css\n:root {{\n{tokens}\n  --font-display: '{fonts[0]}', system-ui, sans-serif;\n"
                           f"  --font-body: '{fonts[-1]}', system-ui, sans-serif;\n}}\n```",
     }

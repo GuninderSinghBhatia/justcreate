@@ -90,7 +90,7 @@ def test_assemble_has_fixed_section_order_and_reference_map():
     ref_map = parts[-1][1]
     assert "§1, §2" in ref_map  # A cited in every section
     assert "Pastel / site" in ref_map  # pipes escaped in titles
-    assert md.count("## 10. Reference map") == 1
+    assert md.count(f"## {len(SECTIONS) + 1}. Reference map") == 1
 
 
 def test_replace_section_keeps_user_edits_elsewhere():
@@ -113,3 +113,22 @@ def test_draft_is_cited_and_has_tokens():
     assert set(d) == {k for k, _, _ in SECTIONS}
     assert CITE.search(d["palette"]) and "--color-primary:" in d["implementation"]
     assert all(s in b.long for s in CITE.findall("\n".join(d.values())))
+
+
+def test_groq_batches_cover_every_section_once_and_fit_one_request():
+    from worker.spec import CHARS_PER_TOKEN, GROQ_REQUEST_TOKENS, SECTION_BATCHES, SYSTEM, _room
+
+    keys = [k for batch, _ in SECTION_BATCHES for k in batch]
+    assert sorted(keys) == sorted(k for k, _, _ in SECTIONS) and len(keys) == len(set(keys))
+    for _, out_tokens in SECTION_BATCHES:
+        fixed = "x" * 3000  # header + aggregates + earlier sections
+        prompt_tokens = (len(SYSTEM) + len(fixed) + _room(out_tokens, fixed)) / CHARS_PER_TOKEN
+        assert prompt_tokens + out_tokens + 400 <= GROQ_REQUEST_TOKENS + 1
+
+
+def test_failure_reason_reads_quota_errors():
+    from worker.spec import failure_reason
+
+    assert "daily limit" in failure_reason(["Error code: 429 - Rate limit reached ... tokens per day (TPD): Limit 200000"])
+    assert "too large" in failure_reason(["Error code: 413 - Request too large for model"])
+    assert "rate-limiting" in failure_reason(["Error code: 429 - Rate limit reached on tokens per minute"])

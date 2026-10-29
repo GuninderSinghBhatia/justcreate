@@ -1,41 +1,60 @@
 import { connection } from "next/server";
-import type { Board, BoardItem, Cluster, ClusterMember, Reference } from "@justcreate/shared";
+import type { Board, BoardItem, Cluster, ClusterMember } from "@justcreate/shared";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { SiteHeader } from "@/components/site-header";
 import { homeBoard } from "@/lib/boards";
-import { toViews } from "@/lib/references";
+import { ANALYSIS_EMBED, toViews, type ReferenceRow } from "@/lib/references";
 import { requireUser } from "@/lib/require-user";
 import { BoardWorkspace } from "./board-workspace";
 
 // Per-user page: nothing useful to prerender.
 export const instant = false;
 
+type BoardRow = Board & {
+  items: (BoardItem & { reference: ReferenceRow })[];
+  clusters: (Cluster & { members: Pick<ClusterMember, "reference_id" | "score">[] })[];
+};
+
+// The whole board in one query: each round trip to the database is the slow part of this page.
+const BOARD_SELECT = `*,
+  items:board_items(board_id, reference_id, x, y, w, h, z, reference:references(*, ${ANALYSIS_EMBED})),
+  clusters(*, members:cluster_members(reference_id, score))`;
+
 /** The user's one board: every saved reference lands here, and clusters group it. */
 export default async function BoardPage({ searchParams }: PageProps<"/board">) {
   await connection();
   const { view } = await searchParams;
   const { supabase, user } = await requireUser();
-  const { id } = await homeBoard(supabase, user.id);
 
-  const [{ data: board }, { data: items }, { data: clusters }, { data: jobs }] = await Promise.all([
-    supabase.from("boards").select("*").eq("id", id).single(),
-    supabase.from("board_items").select("*, reference:references(*)").eq("board_id", id),
+  // The oldest board is the board (see homeBoard). Open clustering jobs load alongside it.
+  const load = () =>
     supabase
-      .from("clusters")
-      .select("*, members:cluster_members(reference_id, score)")
-      .eq("board_id", id)
-      .order("created_at"),
+      .from("boards")
+      .select(BOARD_SELECT)
+      .eq("user_id", user.id)
+      .order("created_at")
+      .order("created_at", { referencedTable: "clusters" })
+      .limit(1)
+      .maybeSingle<BoardRow>();
+  const [first, { data: jobs }] = await Promise.all([
+    load(),
     supabase
       .from("jobs")
-      .select("kind, status")
-      .eq("board_id", id)
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("kind", "cluster")
       .in("status", ["pending", "running"]),
   ]);
+  if (first.error) throw new Error(first.error.message);
+  let board = first.data;
+  if (!board) {
+    await homeBoard(supabase, user.id); // first visit: create it
+    board = (await load()).data!;
+  }
 
-  const placed = (items ?? []) as (BoardItem & { reference: Reference })[];
   const references = await toViews(
     supabase,
-    placed.map((i) => i.reference),
+    board.items.map((i) => i.reference),
   );
 
   return (
@@ -44,11 +63,11 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
       {/* New captures from the extension appear without a reload. */}
       <AutoRefresh />
       <BoardWorkspace
-        board={board as Board}
-        items={placed.map((i) => ({ board_id: i.board_id, reference_id: i.reference_id, x: i.x, y: i.y, w: i.w, h: i.h, z: i.z }))}
+        board={board}
+        items={board.items.map((i) => ({ board_id: i.board_id, reference_id: i.reference_id, x: i.x, y: i.y, w: i.w, h: i.h, z: i.z }))}
         references={references}
-        clusters={(clusters ?? []) as (Cluster & { members: Pick<ClusterMember, "reference_id" | "score">[] })[]}
-        clustering={(jobs ?? []).some((j) => j.kind === "cluster")}
+        clusters={board.clusters}
+        clustering={(jobs ?? []).length > 0}
         initialView={view === "grid" ? "grid" : "canvas"}
       />
     </div>

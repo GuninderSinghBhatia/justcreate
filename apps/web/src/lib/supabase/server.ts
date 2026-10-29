@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
-import { createClient as createPlainClient } from "@supabase/supabase-js";
+import { createClient as createPlainClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { supabasePublishableKey, supabaseUrl } from "./env";
 
@@ -50,4 +50,21 @@ export function bearerToken(request: Request): string | null {
   const header = request.headers.get("authorization");
   const match = header?.match(/^Bearer\s+(.+)$/i);
   return match ? match[1] : null;
+}
+
+/** Who is signed in: just what the app reads. */
+export interface SessionUser {
+  id: string;
+  email?: string;
+}
+
+/**
+ * The signed-in user from a verified access token (the cookie session's, or `accessToken`).
+ * getClaims checks the JWT signature locally against the project's cached signing keys, so this
+ * costs no round trip to Supabase Auth (getUser would, on every request).
+ */
+export async function sessionUser(supabase: SupabaseClient, accessToken?: string): Promise<SessionUser | null> {
+  const { data } = await supabase.auth.getClaims(accessToken);
+  const sub = data?.claims.sub;
+  return typeof sub === "string" ? { id: sub, email: data?.claims.email as string | undefined } : null;
 }

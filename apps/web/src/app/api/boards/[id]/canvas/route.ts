@@ -25,39 +25,42 @@ export async function PUT(request: Request, { params }: RouteContext<"/api/board
   const body = (await request.json().catch(() => null)) as CanvasSave | null;
   if (!body || !Array.isArray(body.items)) return NextResponse.json({ error: "Bad body" }, { status: 400 });
 
-  const { error: boardError } = await supabase
-    .from("boards")
-    .update({ document: body.document, updated_at: new Date().toISOString() })
-    .eq("id", boardId);
-  if (boardError) return NextResponse.json({ error: boardError.message }, { status: 500 });
-
-  const { data: existing } = await supabase.from("board_items").select("reference_id").eq("board_id", boardId);
+  // Independent calls run together: each round trip to the database is most of this request's time.
+  const [{ error: boardError }, { data: existing }] = await Promise.all([
+    supabase.from("boards").update({ document: body.document, updated_at: new Date().toISOString() }).eq("id", boardId),
+    supabase.from("board_items").select("reference_id").eq("board_id", boardId),
+  ]);
+  if (boardError) return failed(boardError.message);
   const before = new Set((existing ?? []).map((i) => i.reference_id));
   const onCanvas = new Set(body.items.map((i) => i.referenceId));
-
-  if (body.items.length) {
-    const { error } = await supabase.from("board_items").upsert(
-      body.items.map((i) => ({
-        board_id: boardId,
-        reference_id: i.referenceId,
-        user_id: user.id,
-        x: i.x,
-        y: i.y,
-        w: i.w,
-        h: i.h,
-        z: i.z,
-      })),
-      { onConflict: "board_id,reference_id" },
-    );
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
   const removed = (body.removed ?? []).filter((id) => before.has(id) && !onCanvas.has(id));
-  if (removed.length) {
-    await supabase.from("board_items").delete().eq("board_id", boardId).in("reference_id", removed);
-  }
+
+  const [upserted] = await Promise.all([
+    body.items.length
+      ? supabase.from("board_items").upsert(
+          body.items.map((i) => ({
+            board_id: boardId,
+            reference_id: i.referenceId,
+            user_id: user.id,
+            x: i.x,
+            y: i.y,
+            w: i.w,
+            h: i.h,
+            z: i.z,
+          })),
+          { onConflict: "board_id,reference_id" },
+        )
+      : null,
+    removed.length ? supabase.from("board_items").delete().eq("board_id", boardId).in("reference_id", removed) : null,
+  ]);
+  if (upserted?.error) return failed(upserted.error.message);
 
   const added = [...onCanvas].filter((id) => !before.has(id)).length;
   if (added) await touchBoard(supabase, user.id, boardId, added);
   return NextResponse.json({ ok: true, added, removed: removed.length });
+}
+
+function failed(message: string) {
+  console.error("Canvas save failed:", message);
+  return NextResponse.json({ error: message }, { status: 500 });
 }

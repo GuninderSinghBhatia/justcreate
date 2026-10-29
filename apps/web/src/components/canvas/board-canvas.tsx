@@ -21,6 +21,7 @@ import { uploadImages } from "@/lib/upload";
 import { createDecor, DecorOver, DecorUnder } from "./decor";
 import { REFERENCE_DRAG_TYPE } from "./drag";
 import { Lightbox, type Zoomed } from "./lightbox";
+import { ToolStrip, type ActiveTool } from "./tool-strip";
 
 const SAVE_DELAY_MS = 800;
 
@@ -72,6 +73,7 @@ export function BoardCanvas({
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const [decor] = useState(createDecor);
+  const [tool, setTool] = useState<ActiveTool>({ type: "selection", locked: false });
   const theme = useSyncExternalStore(subscribeScheme, () => (darkQuery()?.matches ? THEME.DARK : THEME.LIGHT), () => THEME.LIGHT);
 
   // References added on the canvas (sidebar drops, uploads) before the page data refreshes.
@@ -226,6 +228,8 @@ export function BoardCanvas({
   const lastSelection = useRef("");
   const onChange = (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
     decor.update(elements, appState);
+    const { type, locked } = appState.activeTool;
+    if (type !== tool.type || locked !== tool.locked) setTool({ type, locked });
     if (!api) return;
     const ids = elements.filter((el) => appState.selectedElementIds[el.id]).flatMap((el) => referenceIdOf(el) ?? []);
     const key = ids.join(",");
@@ -384,6 +388,7 @@ export function BoardCanvas({
       onDoubleClickCapture={onDoubleClick}
     >
       <DecorUnder decor={decor} />
+      <ToolStrip api={api} active={tool} />
       <Excalidraw
         excalidrawAPI={setApi}
         initialData={initialData}

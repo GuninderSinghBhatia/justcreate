@@ -1,10 +1,29 @@
-# Render Blueprint: the JUSTCREATE AI worker as an always-on background worker.
-# The web app can stay local: the worker only talks to Supabase and the LLM API, polling the
-# jobs table every few seconds, so saves made locally are processed in the cloud.
-#
-# Apply: Render dashboard → New → Blueprint → pick this repo. Render asks for the secret values
-# marked `sync: false` and shows the monthly cost before anything is created.
+# Render Blueprint: JUSTCREATE web app + AI worker.
+# Apply: Render dashboard → New → Blueprint → pick this repo. Render asks for the values marked
+# `sync: false` and shows the monthly cost before anything is created.
 services:
+  # Next.js web app (npm workspaces monorepo: install + build from the repo root).
+  - type: web
+    name: justcreate
+    runtime: node
+    plan: free # spins down when idle (first request after a pause takes ~1 min); "starter" keeps it warm
+    region: singapore
+    buildCommand: npm ci && npm run build -w web
+    startCommand: npm exec -w web -- next start -p $PORT
+    healthCheckPath: /privacy
+    buildFilter:
+      ignoredPaths: ["apps/worker/**", "apps/extension/**", "apps/mcp/**", "docs/**"]
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://gvqubavzxctimdswjnoq.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_1aYdrUFC43PpDFMd-7ROdQ_NjNIQa-1 # browser-safe by design
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+
+  # AI worker: always on, polls the jobs table (no inbound traffic needed).
   - type: worker
     name: justcreate-worker
     runtime: docker

@@ -25,6 +25,7 @@ from .config import Settings
 from .db import Supabase, in_list
 from .llm import model_for, prompt_budget, structured
 from .palette import to_hex
+from .styles import STYLES
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,9 @@ SECTIONS: list[tuple[str, str, str]] = [
 ]
 TITLE = {key: title for key, title, _ in SECTIONS}
 REF_MAP = "Reference map"
+KEY_REFS = "Key references"
+MAX_KEY_REFS = 12
+PUBLIC_IMAGE = re.compile(r"\.(?:jpe?g|png|webp|gif|avif)(?:\?|$)", re.I)  # a saved image's own URL can be embedded
 CITE = re.compile(r"\[ref:([0-9a-f]{6,12})\]")
 # Models sometimes group citations: [ref:a1b2c3, ref:d4e5f6] or [ref:a1b2c3, d4e5f6]
 CITE_GROUP = re.compile(r"\[ref:\s*([0-9a-f]{6,12}(?:\s*[,;]\s*(?:ref:)?\s*[0-9a-f]{6,12})+)\s*\]")
@@ -97,6 +101,16 @@ class SectionText(BaseModel):
 
 
 @dataclass
+class Focus:
+    """A design.md for one cluster: written from its references only, as that one style."""
+
+    cluster_id: str
+    name: str
+    summary: str | None = None
+    look: str | None = None  # the named style's description, when the cluster is one (styles.py)
+
+
+@dataclass
 class Board:
     id: str
     name: str
@@ -105,20 +119,36 @@ class Board:
     short: dict[str, str]  # reference id → short citation id
     groups: list[tuple[str, list[str]]]  # (cluster name, member ids, best first)
     long: dict[str, str] = field(default_factory=dict)  # short id → reference id
+    focus: Focus | None = None
 
     def __post_init__(self):
         self.long = {s: r for r, s in self.short.items()}
+
+    @property
+    def title(self) -> str:
+        return self.focus.name if self.focus else self.name
+
+    def focus_line(self) -> str:
+        """Tells the model the document is one style, so it doesn't average in others."""
+        if not self.focus:
+            return ""
+        what = self.focus.look or self.focus.summary or ""
+        return (f"This design.md is for ONE style family only: “{self.focus.name}”{f' — {what}' if what else ''}. "
+                "Every value must express this style; don't average in other styles.\n\n")
 
 
 # ---------- job entry ----------
 
 def run_spec_job(settings: Settings, db: Supabase, user_id: str, board_id: str, params: dict) -> None:
-    board = load_board(db, user_id, board_id, params.get("cluster_ids") or [])
+    """`params`: cluster_id (this cluster's own design.md) or cluster_ids (a board design.md focused on
+    those clusters), and section (rewrite one section of the latest version)."""
+    scope = params.get("cluster_id")
+    board = load_board(db, user_id, board_id, params.get("cluster_ids") or [], scope)
     if not board.refs:
-        raise RuntimeError("board has no references")
+        raise RuntimeError("this cluster has no references" if scope else "board has no references")
     section = params.get("section")
     if section:
-        current = latest_spec(db, board_id)
+        current = latest_spec(db, board_id, scope)
         if not current:
             section = None  # nothing to patch yet: generate the whole document
     if section:
@@ -137,7 +167,7 @@ def run_spec_job(settings: Settings, db: Supabase, user_id: str, board_id: str, 
         markdown = assemble(board, {k: clean_body(v, board, TITLE[k]) for k, v in sections.items()})
     markdown = with_reference_map(markdown, board)
     save_version(db, user_id, board_id, markdown, kind, {
-        **extra, "model": model, "cluster_ids": params.get("cluster_ids") or [],
+        **extra, **({"cluster_id": scope} if scope else {}), "model": model, "cluster_ids": params.get("cluster_ids") or [],
         "cited": sorted({board.long[s] for s in CITE.findall(markdown) if s in board.long}),
     })
 
@@ -167,14 +197,24 @@ def failure_reason(errors: list[str]) -> str:
         return "the AI provider is rate-limiting requests right now"
     if "413" in text or "too large" in text:
         return "the request was too large for the AI model"
+    if "json_validate_failed" in text or "expected schema" in text:
+        return "the AI model returned an incomplete answer"
     return "the AI model didn't respond"
 
 
 # ---------- data ----------
 
-def load_board(db: Supabase, user_id: str, board_id: str, cluster_ids: list[str]) -> Board:
+def load_board(db: Supabase, user_id: str, board_id: str, cluster_ids: list[str], scope: str | None = None) -> Board:
     board = db.select("boards", {"id": f"eq.{board_id}", "user_id": f"eq.{user_id}", "select": "id,name"})[0]
-    clusters = db.select("clusters", {"board_id": f"eq.{board_id}", "select": "id,name,status,source,cluster_members(reference_id,score)"})
+    clusters = db.select("clusters", {"board_id": f"eq.{board_id}", "select": "id,name,summary,status,source,cluster_members(reference_id,score)"})
+    focus = None
+    if scope:
+        own = next((c for c in clusters if c["id"] == scope), None)
+        if not own:
+            raise RuntimeError("that cluster no longer exists")
+        style = next((s for s in STYLES if s.name.lower() == own["name"].lower()), None)
+        focus = Focus(cluster_id=scope, name=own["name"], summary=own.get("summary"), look=style.look if style else None)
+        cluster_ids = [scope]
     if cluster_ids:
         chosen = [c for c in clusters if c["id"] in cluster_ids]
     else:
@@ -189,7 +229,7 @@ def load_board(db: Supabase, user_id: str, board_id: str, cluster_ids: list[str]
     refs = {r["id"]: r for r in db.select("references", {"id": in_list(ids), "select": "id,type,title,source_url,page_url,thumbnail_path,file_path,note,labels"})} if ids else {}
     analyses = {a["reference_id"]: a for a in db.select("analyses", {"reference_id": in_list(ids), "select": "*"})} if ids else {}
     groups = [(name, [m for m in members if m in refs]) for name, members in groups]
-    return Board(id=board_id, name=board["name"], refs=refs, analyses=analyses, short=short_ids(list(refs)), groups=groups)
+    return Board(id=board_id, name=board["name"], refs=refs, analyses=analyses, short=short_ids(list(refs)), groups=groups, focus=focus)
 
 
 def short_ids(ids: list[str]) -> dict[str, str]:
@@ -201,15 +241,18 @@ def short_ids(ids: list[str]) -> dict[str, str]:
     return {i: i.replace("-", "")[:12] for i in ids}
 
 
-def latest_spec(db: Supabase, board_id: str) -> dict | None:
-    rows = db.select("design_specs", {"board_id": f"eq.{board_id}", "select": "version,markdown", "order": "version.desc", "limit": "1"})
+def latest_spec(db: Supabase, board_id: str, cluster_id: str | None = None) -> dict | None:
+    """The latest version of the board's design.md, or of one cluster's (`sources.cluster_id`)."""
+    rows = db.select("design_specs", {"board_id": f"eq.{board_id}", "sources->>cluster_id": f"eq.{cluster_id}" if cluster_id else "is.null",
+                                      "select": "version,markdown", "order": "version.desc", "limit": "1"})
     return rows[0] if rows else None
 
 
 def save_version(db: Supabase, user_id: str, board_id: str, markdown: str, kind: str, sources: dict) -> int:
+    """Version numbers are unique per board (every document on it shares the sequence)."""
     for _ in range(3):  # another writer may take the same version number: retry
-        current = latest_spec(db, board_id)
-        version = (current["version"] if current else 0) + 1
+        rows = db.select("design_specs", {"board_id": f"eq.{board_id}", "select": "version", "order": "version.desc", "limit": "1"})
+        version = (rows[0]["version"] if rows else 0) + 1
         try:
             db.insert("design_specs", {"board_id": board_id, "user_id": user_id, "version": version,
                                        "markdown": markdown, "kind": kind, "sources": sources})
@@ -302,7 +345,7 @@ def generate_sections(settings: Settings, db: Supabase, board: Board, model: str
             out.append(f"### {name}\n" + "\n".join(f"- {k}: {v}" for k, v in brief.model_dump().items()))
         briefs = "Cluster briefs:\n" + "\n\n".join(out) + "\n\n"
     prompt = (
-        f"Board: “{board.name}” — {len(board.refs)} references in {len(board.groups)} group(s): "
+        f"{board.focus_line()}Board: “{board.name}” — {len(board.refs)} references in {len(board.groups)} group(s): "
         f"{', '.join(n for n, _ in board.groups)}.\n\n"
         f"Measured aggregates (exact, from pixels and analyses):\n{json.dumps(agg, separators=(',', ':'))}\n\n{briefs}"
         f"References:\n{reference_lines(board, budget=budget)}\n\n"
@@ -325,14 +368,26 @@ def generate_in_batches(settings: Settings, board: Board, agg: dict, model: str)
         room = _room(out_tokens, head, earlier, ask)
         prompt = f"{head}\nReferences:\n{reference_lines(board, budget=room)}\n{earlier}{ask}"
         schema = _section_model(keys, f"DesignSpecPart{n}")
-        out.update(structured(settings, "spec", SYSTEM, prompt, schema, model=model, max_tokens=out_tokens).model_dump())
+        out.update(_twice(lambda: structured(settings, "spec", SYSTEM, prompt, schema, model=model, max_tokens=out_tokens)).model_dump())
     return out
+
+
+def _twice(call):
+    """Strict JSON output now and then comes back incomplete (a section missing): one more try
+    usually works, and is much cheaper than falling back to a draft."""
+    try:
+        return call()
+    except Exception as err:  # noqa: BLE001 - only schema misses are retried
+        if "json_validate_failed" not in str(err) and "does not match the expected schema" not in str(err):
+            raise
+        log.warning("structured output incomplete, retrying once: %s", str(err)[:200])
+        return call()
 
 
 def board_header(board: Board, agg: dict) -> str:
     groups = "; ".join(f"“{name}” ({len(members)}): {' '.join(f'[ref:{board.short[r]}]' for r in members[:8])}"
                        for name, members in board.groups)
-    return (f"Board: “{board.name}” — {len(board.refs)} references. Style families: {groups}.\n\n"
+    return (f"{board.focus_line()}Board: “{board.name}” — {len(board.refs)} references. Style families: {groups}.\n\n"
             f"Measured aggregates (exact, from pixels and analyses):\n{json.dumps(agg, separators=(',', ':'))}\n")
 
 
@@ -356,11 +411,11 @@ def regenerate_section(settings: Settings, board: Board, current_markdown: str, 
         out_tokens, budget = None, prompt_budget(settings)  # the current document shares the budget with the references
         current, refs = current_markdown[:budget], reference_lines(board, budget=budget // 2)
     prompt = (
-        f"Board: “{board.name}”. Measured aggregates:\n{agg}\n\n"
+        f"{board.focus_line()}Board: “{board.name}”. Measured aggregates:\n{agg}\n\n"
         f"References:\n{refs}\n\n"
         f"Current design.md (the user may have edited it — stay consistent with it):\n{current}\n\n{ask}"
     )
-    return structured(settings, "spec", SYSTEM, prompt, SectionText, model=model, max_tokens=out_tokens).markdown
+    return _twice(lambda: structured(settings, "spec", SYSTEM, prompt, SectionText, model=model, max_tokens=out_tokens)).markdown
 
 
 def key_images(board: Board) -> list[str]:
@@ -420,9 +475,11 @@ def draft_sections(board: Board) -> dict[str, str]:
 
 def assemble(board: Board, sections: dict[str, str]) -> str:
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    head = (f"# design.md — {board.name}\n\n> Generated by JUSTCREATE on {date} from {len(board.refs)} references "
-            f"({', '.join(n for n, _ in board.groups)}). **Observed** = visible in the references · **Inferred** = estimated. "
-            "Citations like [ref:xxxxxx] point to the reference map.\n")
+    source = (f"the {len(board.refs)} references of the “{board.focus.name}” cluster on board “{board.name}”" if board.focus
+              else f"{len(board.refs)} references ({', '.join(n for n, _ in board.groups)})")
+    head = (f"# design.md — {board.title}\n\n> Generated by JUSTCREATE on {date} from {source}. "
+            "**Observed** = visible in the references · **Inferred** = estimated. "
+            "Citations like [ref:xxxxxx] point to the key references and the reference map.\n")
     body = "\n".join(f"\n## {n}. {title}\n\n{sections.get(key, '').strip()}\n" for n, (key, title, _) in enumerate(SECTIONS, 1))
     return head + body
 
@@ -444,9 +501,42 @@ def replace_section(markdown: str, title: str, body: str) -> str:
     return _join(preamble, [(t, f"\n\n{body.strip()}\n" if t == title else b) for t, b in parts])
 
 
+def key_references(board: Board) -> str:
+    """The references the document is built from, best first, each with its image: the public file
+    when it has one (a saved image's own URL), else `ref:<id>`, which the JUSTCREATE preview shows
+    and an agent can fetch with the MCP `get_references` tool. Built in code: every value is real."""
+    order = list(dict.fromkeys([r for _, members in board.groups for r in members] + list(board.refs)))[:MAX_KEY_REFS]
+    blocks, stored = [], False
+    for ref_id in order:
+        r, a = board.refs[ref_id], board.analyses.get(ref_id) or {}
+        s = board.short[ref_id]
+        title = re.sub(r"[\[\]|]", "", (r.get("title") or "untitled").strip())[:80]
+        caption = re.sub(r"[\[\]]", "", (a.get("caption") or "").strip())
+        src = r.get("source_url") or ""
+        public = r["type"] == "image" and PUBLIC_IMAGE.search(src)
+        stored = stored or not public
+        styles = [x.get("name") for x in (a.get("inferred") or {}).get("styles") or [] if isinstance(x, dict)]
+        palette = " ".join(f"`{h}`" for h in (a.get("palette") or [])[:6])
+        facts = " · ".join(f for f in [f"**Style:** {', '.join(styles)}" if styles else "",
+                                         f"**Palette:** {palette}" if palette else ""] if f)
+        link = r.get("page_url") or r.get("source_url")
+        lines = [f"### {s} · {title}", "", f"![{caption[:120] or title}]({src if public else f'ref:{s}'})", ""]
+        lines += [f"- {facts}"] if facts else []
+        lines += [f"- {caption}"] if caption else []
+        lines += [f"- [Source]({link})"] if link else []
+        blocks.append("\n".join(lines))
+    intro = "The references this design.md is built from, best first."
+    if stored:
+        intro += " Images marked `ref:` are stored in JUSTCREATE: fetch them with the `get_references` tool."
+    more = len(board.refs) - len(order)
+    tail = f"\n\n_{more} more in the reference map below._" if more > 0 else ""
+    return f"\n\n{intro}\n\n" + "\n\n".join(blocks) + tail + "\n"
+
+
 def with_reference_map(markdown: str, board: Board) -> str:
+    """(Re)builds the two closing sections from the board: key references and the reference map."""
     preamble, parts = split_sections(markdown)
-    parts = [(t, b) for t, b in parts if t != REF_MAP]
+    parts = [(t, b) for t, b in parts if t not in (REF_MAP, KEY_REFS)]
     cited_in: dict[str, list[int]] = {}
     for n, (_, b) in enumerate(parts, 1):
         for s in CITE.findall(b):
@@ -459,7 +549,7 @@ def with_reference_map(markdown: str, board: Board) -> str:
         where = ", ".join(f"§{n}" for n in sorted(set(cited_in.get(s, [])))) or "—"
         rows.append(f"| {s} | {title} | {r['type']} | {where} | {f'[source]({link})' if link else '—'} |")
     table = "\n\n| Ref | Title | Type | Cited in | Source |\n|---|---|---|---|---|\n" + "\n".join(rows) + "\n"
-    return _join(preamble, parts + [(REF_MAP, table)])
+    return _join(preamble, parts + [(KEY_REFS, key_references(board)), (REF_MAP, table)])
 
 
 def clean_body(text: str, board: Board, title: str | None = None) -> str:

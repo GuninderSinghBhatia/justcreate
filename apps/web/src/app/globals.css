@@ -208,3 +208,10 @@ button.bar-ctl:hover, button.bar-ctl:active, a.bar-ctl:hover, a.bar-ctl:active {
 
 /* The JUSTCREATE wordmark: the site's body face (Nunito), heavy and spaced, same everywhere. */
 .wordmark { font-family: var(--font-sans); font-weight: 800; letter-spacing: 0.06em; font-size-adjust: none; }
+/* Key reference images in a design.md. */
+.prose-spec .spec-figure {
+  display: block; max-width: 100%; max-height: 22rem; width: auto; margin: 0.5rem 0;
+  border-radius: 8px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.25);
+}
+.prose-spec h3 + p:has(> .spec-figure) { margin-top: 0.25rem; }

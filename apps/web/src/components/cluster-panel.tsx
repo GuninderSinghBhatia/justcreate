@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Cluster, ClusterMember } from "@justcreate/shared";
@@ -161,7 +162,7 @@ function ClusterRow({
   const [name, setName] = useState(c.name);
   const [open, setOpen] = useState(false);
   const memberIds = [...c.members].sort((a, b) => b.score - a.score).map((m) => m.reference_id);
-  const showImages = () => onOpen({ title: c.name, summary: c.summary, ids: memberIds });
+  const showImages = () => onOpen({ title: c.name, summary: c.summary, ids: memberIds, clusterId: c.id });
   const addable = selection.filter((id) => !memberIds.includes(id));
 
   return (
@@ -217,6 +218,9 @@ function ClusterRow({
             </button>
           </>
         )}
+        <Link href={`/board/spec?c=${c.id}`} className="font-medium underline" title={`The design.md for ${c.name}`}>
+          design.md
+        </Link>
         <button onClick={() => onFocus(memberIds)} className="text-foreground/60 underline">
           Show on canvas
         </button>

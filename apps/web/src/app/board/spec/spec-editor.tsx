@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { BarButton, BarDivider, BarIcon, BarLink, Segmented } from "@/components/bar";
@@ -22,11 +22,15 @@ export interface CitedRef {
   thumb: string | null;
 }
 
-interface ClusterInfo {
+export interface ClusterInfo {
   id: string;
   name: string;
   status: string;
   size: number;
+  summary: string | null;
+  thumbs: string[];
+  /** Has its own design.md. */
+  hasDoc: boolean;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -39,12 +43,15 @@ const KIND_LABEL: Record<string, string> = {
 const SECTION_TITLE = Object.fromEntries(SPEC_SECTIONS) as Record<SpecSectionKey, string>;
 
 /**
- * A board's design.md: read it with section navigation, cited references as image chips and
- * colour swatches; edit the markdown; generate it, or rewrite one section, from the board.
+ * A board's design.md, or one cluster's (`scope`): read it with section navigation, cited
+ * references as image chips and colour swatches, key reference images; edit the markdown; generate
+ * it, or rewrite one section. Each document has its own versions.
  */
 export function SpecEditor({
   boardId,
   boardName,
+  scope,
+  boardHasDoc,
   referenceCount,
   markdown: saved,
   version,
@@ -53,9 +60,13 @@ export function SpecEditor({
   clusters,
   refs,
   job,
+  busyElsewhere,
 }: {
   boardId: string;
   boardName: string;
+  /** The cluster whose own design.md this is; null for the board's. */
+  scope: ClusterInfo | null;
+  boardHasDoc: boolean;
   referenceCount: number;
   markdown: string;
   version: VersionInfo | null;
@@ -64,6 +75,8 @@ export function SpecEditor({
   clusters: ClusterInfo[];
   refs: Record<string, CitedRef>;
   job: { status: string; error: string | null; section: string | null } | null;
+  /** Another of the board's documents is being written (one at a time per board). */
+  busyElsewhere: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -98,14 +111,16 @@ export function SpecEditor({
         setMessage(err instanceof Error ? err.message : "Something went wrong");
       }
     });
-  const generate = (clusterIds: string[]) => run(() => generateSpec(boardId, clusterIds), "Queued: the page updates when it's ready.");
-  const rewrite = (key: SpecSectionKey) => run(() => regenerateSection(boardId, key), `Rewriting “${SECTION_TITLE[key]}”…`);
+  const scopeId = scope?.id;
+  const generate = (clusterIds: string[]) => run(() => generateSpec(boardId, clusterIds, scopeId), "Queued: the page updates when it's ready.");
+  const rewrite = (key: SpecSectionKey) => run(() => regenerateSection(boardId, key, scopeId), `Rewriting “${SECTION_TITLE[key]}”…`);
+  const openScope = (clusterId: string) => router.push(clusterId ? `${pathname}?c=${clusterId}` : pathname);
 
   const download = () => {
     const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
     const a = Object.assign(document.createElement("a"), {
       href: url,
-      download: `design-${boardName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.md`,
+      download: `design-${(scope?.name ?? boardName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.md`,
     });
     a.click();
     URL.revokeObjectURL(url);
@@ -157,27 +172,48 @@ export function SpecEditor({
       }
       return <code className={className}>{children}</code>;
     },
+    // Key reference images: public files as they are, stored ones (`ref:<id>`) from their thumbnail.
+    img: ({ src, alt }) =>
+      typeof src === "string" && src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- remote and signed storage URLs
+        <img src={src} alt={alt ?? ""} loading="lazy" className="spec-figure" />
+      ) : null,
   };
+  const urlTransform = (url: string) => (url.startsWith("ref:") ? (refs[url.slice(4)]?.thumb ?? "") : defaultUrlTransform(url));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {running && <AutoRefresh intervalMs={4000} />}
+      {(running || busyElsewhere) && <AutoRefresh intervalMs={4000} />}
 
       <SiteHeader>
         <BarLink href="/board" icon={BarIcon.back}>
           Board
         </BarLink>
         <span className="font-hand text-base">design.md</span>
+        <select
+          value={scope?.id ?? ""}
+          onChange={(e) => openScope(e.target.value)}
+          aria-label="Which design.md"
+          className="h-8 max-w-60 truncate rounded-lg bg-foreground/[0.06] px-2 font-sans text-xs font-semibold text-foreground/80 hover:text-foreground"
+        >
+          <option value="">Whole board{boardHasDoc ? "" : " · none yet"}</option>
+          {clusters.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} ({c.size}){c.hasDoc ? "" : " · none yet"}
+            </option>
+          ))}
+        </select>
         {versions.length > 0 && (
           <select
             value={version?.version ?? ""}
-            onChange={(e) => router.push(`${pathname}?v=${e.target.value}`)}
+            onChange={(e) => router.push(`${pathname}?${scope ? `c=${scope.id}&` : ""}v=${e.target.value}`)}
             aria-label="Version"
             className="h-8 max-w-56 truncate rounded-lg bg-foreground/[0.06] px-2 font-sans text-xs text-foreground/70 hover:text-foreground"
           >
-            {versions.map((s) => (
+            {versions.map((s, i) => (
+              // Numbered within this document (the board's version numbers are shared by all of them).
               <option key={s.version} value={s.version}>
-                v{s.version} · {KIND_LABEL[s.kind] ?? s.kind} · {new Date(s.createdAt).toLocaleDateString()}
+                v{versions.length - i} · {KIND_LABEL[s.kind] ?? s.kind} · {new Date(s.createdAt).toLocaleDateString()}
               </option>
             ))}
           </select>
@@ -197,7 +233,7 @@ export function SpecEditor({
               />
               <BarDivider />
               {dirty && (
-                <BarButton primary disabled={pending || running} onClick={() => run(() => saveSpecEdit(boardId, text), "Saved as a new version.")}>
+                <BarButton primary disabled={pending || running} onClick={() => run(() => saveSpecEdit(boardId, text, scopeId), "Saved as a new version.")}>
                   Save version
                 </BarButton>
               )}
@@ -213,13 +249,26 @@ export function SpecEditor({
               <BarDivider />
             </>
           )}
-          <GenerateMenu
-            label={versions.length ? "Regenerate" : "Generate"}
-            clusters={clusters}
-            disabled={pending || running || dirty}
-            disabledReason={dirty ? "Save or discard your edits first" : undefined}
-            onGenerate={generate}
-          />
+          {scope ? (
+            // A cluster's own design.md is written from that cluster: nothing to pick.
+            <BarButton
+              primary
+              icon={BarIcon.sparkle}
+              disabled={pending || running || dirty || Boolean(busyElsewhere)}
+              title={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
+              onClick={() => generate([])}
+            >
+              {versions.length ? "Regenerate" : "Generate"}
+            </BarButton>
+          ) : (
+            <GenerateMenu
+              label={versions.length ? "Regenerate" : "Generate"}
+              clusters={clusters}
+              disabled={pending || running || dirty || Boolean(busyElsewhere)}
+              disabledReason={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
+              onGenerate={generate}
+            />
+          )}
         </div>
       </SiteHeader>
 
@@ -231,12 +280,19 @@ export function SpecEditor({
         fallbackReason={fallbackReason}
         message={message}
         dirty={dirty}
-        olderVersion={!isLatest ? version?.version ?? null : null}
+        olderVersion={!isLatest && version ? versions.length - versions.findIndex((x) => x.version === version.version) : null}
+        busyElsewhere={busyElsewhere}
         onDiscard={() => setText(saved)}
       />
 
       {!versions.length && !running ? (
-        <EmptyState clusters={clusters} referenceCount={referenceCount} disabled={pending} onGenerate={() => generate([])} />
+        <EmptyState
+          scope={scope}
+          clusters={clusters}
+          referenceCount={referenceCount}
+          disabled={pending || Boolean(busyElsewhere)}
+          onGenerate={() => generate([])}
+        />
       ) : (
         <div className="flex min-h-0 flex-1">
           {view !== "edit" && headings.length > 0 && (
@@ -283,7 +339,7 @@ export function SpecEditor({
             {view !== "edit" && (
               <article ref={reader} className="prose-spec min-h-0 overflow-y-auto px-6 py-6 text-sm leading-relaxed sm:px-10">
                 <div className="mx-auto max-w-3xl">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={urlTransform}>
                     {preview}
                   </ReactMarkdown>
                 </div>
@@ -341,6 +397,7 @@ function Banner({
   message,
   dirty,
   olderVersion,
+  busyElsewhere,
   onDiscard,
 }: {
   running: boolean;
@@ -351,6 +408,7 @@ function Banner({
   message: string | null;
   dirty: boolean;
   olderVersion: number | null;
+  busyElsewhere: string | null;
   onDiscard: () => void;
 }) {
   let body: React.ReactNode = null;
@@ -361,6 +419,13 @@ function Banner({
       <>
         <span aria-hidden className="spec-pulse" />
         {what}… this can take a few minutes on the free AI tier. The page updates when it&apos;s done.
+      </>
+    );
+  } else if (busyElsewhere) {
+    body = (
+      <>
+        <span aria-hidden className="spec-pulse" />
+        Writing {busyElsewhere}&apos;s design.md first (one at a time per board). You can start this one when it&apos;s done.
       </>
     );
   } else if (failed) {
@@ -392,16 +457,19 @@ function Banner({
 }
 
 function EmptyState({
+  scope,
   clusters,
   referenceCount,
   disabled,
   onGenerate,
 }: {
+  scope: ClusterInfo | null;
   clusters: ClusterInfo[];
   referenceCount: number;
   disabled: boolean;
   onGenerate: () => void;
 }) {
+  if (scope) return <ClusterEmptyState cluster={scope} disabled={disabled} onGenerate={onGenerate} />;
   const used = clusters.filter((c) => c.status === "accepted");
   const shown = used.length ? used : clusters;
   return (
@@ -432,6 +500,38 @@ function EmptyState({
           {used.length ? "Uses your accepted clusters." : clusters.length ? "Uses the suggested clusters." : "Uses the whole board."} You can
           edit it, rewrite single sections and download it after.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/** A cluster without its own design.md yet: what it is, a few of its images, and generate. */
+function ClusterEmptyState({ cluster, disabled, onGenerate }: { cluster: ClusterInfo; disabled: boolean; onGenerate: () => void }) {
+  return (
+    <div className="flex flex-1 items-center justify-center p-8">
+      <div className="flex max-w-lg flex-col items-center gap-4 text-center">
+        {cluster.thumbs.length > 0 && (
+          <div className="flex -space-x-3">
+            {cluster.thumbs.map((t, i) => (
+              // eslint-disable-next-line @next/next/no-img-element -- signed storage URL
+              <img key={t} src={t} alt="" className="size-16 rounded-lg border-2 border-background object-cover shadow-sm" style={{ rotate: `${(i % 2 ? 1 : -1) * (2 + (i % 3))}deg` }} />
+            ))}
+          </div>
+        )}
+        <h1 className="text-2xl">{cluster.name}</h1>
+        {cluster.summary && <p className="text-sm text-foreground/60">{cluster.summary}</p>}
+        <p className="text-sm text-foreground/60">
+          Its own design.md, written from these {cluster.size} references only: the palette, type, layout and components of this one
+          style, with the references inside.
+        </p>
+        <button
+          onClick={onGenerate}
+          disabled={disabled}
+          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+        >
+          Generate design.md for {cluster.name}
+        </button>
+        {cluster.status === "suggested" && <p className="text-xs text-foreground/45">This also accepts the cluster, so re-clustering keeps it.</p>}
       </div>
     </div>
   );

@@ -45,12 +45,21 @@ server.registerTool(
   "list_boards",
   {
     title: "List JUSTCREATE boards",
-    description: "Lists the user's JUSTCREATE moodboards with reference counts, accepted clusters and whether a design.md exists.",
+    description:
+      "Lists the user's JUSTCREATE moodboards with reference counts, accepted clusters, whether a design.md exists, " +
+      "and which clusters have their own design.md.",
     annotations: readOnly,
   },
   safe(async () => {
     const { boards } = await api<{
-      boards: { id: string; name: string; references: number; clusters: string[]; design_spec: { version: number } | null }[];
+      boards: {
+        id: string;
+        name: string;
+        references: number;
+        clusters: string[];
+        cluster_specs?: string[];
+        design_spec: { version: number } | null;
+      }[];
     }>("/boards");
     if (!boards.length) return text("No boards yet.");
     return text(
@@ -59,7 +68,8 @@ server.registerTool(
           (b) =>
             `- ${b.name} (id ${b.id}): ${b.references} references` +
             (b.clusters.length ? `; clusters: ${b.clusters.join(", ")}` : "") +
-            (b.design_spec ? `; design.md v${b.design_spec.version}` : "; no design.md yet"),
+            (b.design_spec ? `; design.md v${b.design_spec.version}` : "; no design.md yet") +
+            (b.cluster_specs?.length ? `; own design.md for clusters: ${b.cluster_specs.join(", ")}` : ""),
         )
         .join("\n"),
     );
@@ -72,19 +82,31 @@ server.registerTool(
     title: "Get a board's design.md",
     description:
       "Returns the design.md for a JUSTCREATE board: visual direction, palette (hex), typography, layout, components, effects, motion, " +
-      "responsive rules, implementation tokens (CSS variables / Tailwind) and a reference map. Claims cite [ref:xxxxxx] ids — " +
-      "use get_references to see those images. Use this as the design brief when building UI.",
+      "responsive rules, implementation tokens (CSS variables / Tailwind), key reference images and a reference map. Claims cite " +
+      "[ref:xxxxxx] ids; images written as ref:xxxxxx are stored in JUSTCREATE (use get_references to see them). Pass `cluster` " +
+      "for that cluster's own design.md: one style family only, the right brief when the user wants a specific look. " +
+      "Use this as the design brief when building UI.",
     inputSchema: {
       board: z.string().describe("Board name (case-insensitive) or id"),
       version: z.number().int().positive().optional().describe("A specific version; latest if omitted"),
+      cluster: z.string().optional().describe("A cluster (name or id): its own design.md instead of the whole board's"),
     },
     annotations: readOnly,
   },
-  safe(async ({ board: b, version }) => {
-    const spec = await api<{ board: { name: string }; version: number; kind: string; created_at: string; markdown: string }>(
-      `/boards/${board(b)}/spec${version ? `?version=${version}` : ""}`,
-    );
-    return text(`<!-- JUSTCREATE board “${spec.board.name}”, design.md v${spec.version} (${spec.kind}, ${spec.created_at}) -->\n\n${spec.markdown}`);
+  safe(async ({ board: b, version, cluster }) => {
+    const query = new URLSearchParams();
+    if (version) query.set("version", String(version));
+    if (cluster) query.set("cluster", cluster);
+    const spec = await api<{
+      board: { name: string };
+      cluster: { name: string } | null;
+      version: number;
+      kind: string;
+      created_at: string;
+      markdown: string;
+    }>(`/boards/${board(b)}/spec${query.size ? `?${query}` : ""}`);
+    const what = spec.cluster ? `cluster “${spec.cluster.name}” on board “${spec.board.name}”` : `board “${spec.board.name}”`;
+    return text(`<!-- JUSTCREATE ${what}, design.md v${spec.version} (${spec.kind}, ${spec.created_at}) -->\n\n${spec.markdown}`);
   }),
 );
 

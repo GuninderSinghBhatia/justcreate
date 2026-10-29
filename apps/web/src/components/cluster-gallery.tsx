@@ -2,13 +2,15 @@
 
 import { useEffect } from "react";
 import type { ReferenceView } from "@/lib/references";
-import { BarButton, BarIcon } from "./bar";
+import { BarButton, BarIcon, BarLink } from "./bar";
 import { ReferenceGrid } from "./reference-grid";
 
 export interface Gallery {
   title: string;
   summary?: string | null;
   ids: string[];
+  /** When it is a cluster: links to its own design.md. */
+  clusterId?: string;
 }
 
 /**
@@ -46,6 +48,11 @@ export function ClusterGallery({
           </h2>
           {gallery.summary && <p className="truncate font-sans text-xs text-foreground/55">{gallery.summary}</p>}
         </div>
+        {gallery.clusterId && (
+          <BarLink href={`/board/spec?c=${gallery.clusterId}`} icon={BarIcon.doc}>
+            design.md
+          </BarLink>
+        )}
         {onShowOnCanvas && (
           <BarButton icon={BarIcon.canvas} onClick={onShowOnCanvas}>
             Show on canvas

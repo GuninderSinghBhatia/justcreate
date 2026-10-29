@@ -46,3 +46,17 @@ jobs:
       - run: uv sync
       - name: Unit tests
         run: uv run pytest -q
+
+  worker-image:
+    # Proves the Dockerfile Render builds (CPU torch, baked-in CLIP weights) without pushing it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build worker image
+        run: docker build -t justcreate-worker apps/worker
+      - name: Smoke test (imports, CLIP loads offline, config falls back to env)
+        run: |
+          docker run --rm --network none -e SUPABASE_URL=https://example.supabase.co -e SUPABASE_SECRET_KEY=x \
+            justcreate-worker python -c "from worker.config import load_settings; s = load_settings(); \
+          from worker.embed import get_clip; import numpy as np; v = get_clip(s).text('neon dashboard'); \
+          print('provider', s.provider, 'clip dims', v.shape[0]); assert v.shape[0] == 512"

@@ -14,6 +14,8 @@ RUN uv sync --frozen --no-install-project
 
 # Bake the CLIP weights into the image so cold starts don't download ~600 MB.
 RUN python -c "import open_clip; open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')"
+# From here on the weights come from the image only: no Hub calls at runtime.
+ENV HF_HUB_OFFLINE=1
 
 COPY worker ./worker
 

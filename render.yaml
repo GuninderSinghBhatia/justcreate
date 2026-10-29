@@ -1,0 +1,27 @@
+# Render Blueprint: the JUSTCREATE AI worker as an always-on background worker.
+# The web app can stay local: the worker only talks to Supabase and the LLM API, polling the
+# jobs table every few seconds, so saves made locally are processed in the cloud.
+#
+# Apply: Render dashboard → New → Blueprint → pick this repo. Render asks for the secret values
+# marked `sync: false` and shows the monthly cost before anything is created.
+services:
+  - type: worker
+    name: justcreate-worker
+    runtime: docker
+    # Paths are relative to the repo root (no rootDir, so there's no ambiguity in a monorepo).
+    dockerfilePath: ./apps/worker/Dockerfile
+    dockerContext: ./apps/worker
+    buildFilter:
+      paths: ["apps/worker/**"]
+    # CLIP + torch need ~1 GB RAM: the 512 MB instances run out of memory.
+    plan: 1c-2g
+    region: singapore
+    envVars:
+      - key: LLM_PROVIDER
+        value: groq
+      - key: SUPABASE_URL
+        value: https://gvqubavzxctimdswjnoq.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

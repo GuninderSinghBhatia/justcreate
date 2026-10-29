@@ -42,12 +42,16 @@ class Settings:
     supabase_secret_key: str
     anthropic_api_key: str | None
     gemini_api_key: str | None
+    groq_api_key: str | None
+    llm_provider: str | None  # LLM_PROVIDER: force "anthropic" | "groq" | "gemini"
     # Per-reference tagging runs on every save, so it uses the cheap model; naming clusters
     # needs more judgement. Both overridable.
     analysis_model: str
     naming_model: str
     gemini_model: str  # per-reference analysis (one call per save: the lite model saves quota)
     gemini_naming_model: str
+    groq_vision_model: str  # analysis needs to see the image
+    groq_text_model: str  # naming + design.md
     clip_model: str
     clip_pretrained: str
     poll_seconds: float
@@ -55,16 +59,18 @@ class Settings:
 
     @property
     def provider(self) -> str | None:
-        """Claude if its key is set, else Gemini, else None (metadata/colour fallback)."""
-        if self.anthropic_api_key:
-            return "anthropic"
-        if self.gemini_api_key:
-            return "gemini"
-        return None
+        """LLM_PROVIDER if its key is set, else Claude, Groq, Gemini in that order, else None
+        (metadata/colour fallback)."""
+        keys = {"anthropic": self.anthropic_api_key, "groq": self.groq_api_key, "gemini": self.gemini_api_key}
+        if self.llm_provider in keys and keys[self.llm_provider]:
+            return self.llm_provider
+        return next((name for name, key in keys.items() if key), None)
 
     @property
     def analysis_model_name(self) -> str:
-        return {"anthropic": self.analysis_model, "gemini": self.gemini_model}.get(self.provider or "", "heuristic-v1")
+        return {"anthropic": self.analysis_model, "gemini": self.gemini_model, "groq": self.groq_vision_model}.get(
+            self.provider or "", "heuristic-v1"
+        )
 
 
 def load_settings() -> Settings:
@@ -78,6 +84,10 @@ def load_settings() -> Settings:
         supabase_secret_key=key,
         anthropic_api_key=env.get("ANTHROPIC_API_KEY") or None,
         gemini_api_key=env.get("GEMINI_API_KEY") or env.get("GOOGLE_API_KEY") or None,
+        groq_api_key=env.get("GROQ_API_KEY") or None,
+        llm_provider=(env.get("LLM_PROVIDER") or "").strip().lower() or None,
+        groq_vision_model=env.get("GROQ_VISION_MODEL", "qwen/qwen3.8-27b"),
+        groq_text_model=env.get("GROQ_TEXT_MODEL", "openai/gpt-oss-120b"),
         analysis_model=env.get("ANALYSIS_MODEL", "claude-haiku-5-5"),
         naming_model=env.get("NAMING_MODEL", "claude-sonnet-5-5"),
         gemini_model=env.get("GEMINI_MODEL", "gemini-3.5-flash-lite"),

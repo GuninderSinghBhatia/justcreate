@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Board, BoardItem } from "@justcreate/shared";
 import type { CanvasHandle } from "@/components/canvas/board-canvas";
@@ -12,7 +12,7 @@ import { ReferenceDrawer } from "@/components/reference-drawer";
 import { ReferenceGrid } from "@/components/reference-grid";
 import { SiteHeader } from "@/components/site-header";
 import { BarDivider, BarIcon, BarToggle, SaveStatus, Segmented } from "@/components/bar";
-import { addReferencesToBoard, renameBoard } from "@/lib/actions";
+import { addReferencesToBoard } from "@/lib/actions";
 import type { ReferenceView } from "@/lib/references";
 
 // Excalidraw touches window on import; render it in the browser only.
@@ -22,6 +22,8 @@ const BoardCanvas = dynamic(() => import("@/components/canvas/board-canvas").the
 });
 
 type View = "canvas" | "grid";
+/** Marks the browser-history entry an open gallery adds. */
+const GALLERY_STATE = "justcreateGallery";
 
 export function BoardWorkspace({
   board,
@@ -45,7 +47,6 @@ export function BoardWorkspace({
   const [showClusters, setShowClusters] = useState(false); // opened on demand: the board starts with room to breathe
   const [selection, setSelection] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
-  const [name, setName] = useState(board.name);
   const [, start] = useTransition();
   const canvas = useRef<CanvasHandle | null>(null);
 
@@ -67,38 +68,31 @@ export function BoardWorkspace({
 
   // A cluster's or style's references as a grid over the board.
   const [gallery, setGallery] = useState<Gallery | null>(null);
+  // It gets a browser-history entry, so Back (browser, mouse, swipe) closes it like a page. The
+  // entry keeps Next's own history state: without it the router reloads the page on popstate.
   const openGallery = useCallback((g: Gallery) => {
     canvas.current?.focus([]); // its drawer would sit beside the gallery
+    const state = { ...window.history.state, [GALLERY_STATE]: true };
+    if (window.history.state?.[GALLERY_STATE]) window.history.replaceState(state, "");
+    else window.history.pushState(state, "");
     setGallery(g);
   }, []);
-  const closeGallery = useCallback(() => setGallery(null), []);
+  const closeGallery = useCallback(() => {
+    if (window.history.state?.[GALLERY_STATE]) window.history.back(); // popstate below closes it
+    else setGallery(null);
+  }, []);
+  useEffect(() => {
+    const onPop = () => {
+      if (!window.history.state?.[GALLERY_STATE]) setGallery(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SiteHeader
-        section="board"
-        context={
-          <>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(name))}
-              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-              aria-label="Board name"
-              title="Rename the board"
-              className="field-sizing-content h-8 min-w-0 max-w-56 rounded-lg border border-transparent bg-transparent px-2 font-semibold hover:bg-foreground/[0.05] focus:border-foreground/25 focus:bg-transparent"
-            />
-            <span className="hidden shrink-0 text-xs whitespace-nowrap text-foreground/45 tabular-nums sm:inline">
-              {items.length} {items.length === 1 ? "reference" : "references"}
-            </span>
-            {view === "canvas" && (
-              <>
-                <span aria-hidden className="hidden text-foreground/25 md:inline">·</span>
-                <SaveStatus state={saveState} />
-              </>
-            )}
-          </>
-        }
+        context={view === "canvas" ? <SaveStatus state={saveState} /> : undefined}
         tools={
           <>
             <Segmented
@@ -162,7 +156,7 @@ export function BoardWorkspace({
               onShowOnCanvas={
                 view === "canvas"
                   ? () => {
-                      setGallery(null);
+                      closeGallery();
                       focus(gallery.ids);
                     }
                   : undefined

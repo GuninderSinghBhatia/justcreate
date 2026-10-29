@@ -11,8 +11,8 @@ type RefRow = { id: string; title: string | null; source_url: string | null; pag
 type Sources = { cluster_id?: string; fallback_reason?: string };
 
 /**
- * The board's design.md, or one cluster's (`?c=<cluster id>`): each is its own line of versions,
- * told apart by `sources.cluster_id`.
+ * A cluster's design.md (`?c=<cluster id>`; without one, the first cluster that has a document, else
+ * the first cluster). Each cluster's document is its own line of versions (`sources.cluster_id`).
  */
 export default async function SpecPage({ searchParams }: PageProps<"/board/spec">) {
   await connection();
@@ -43,12 +43,15 @@ export default async function SpecPage({ searchParams }: PageProps<"/board/spec"
       .limit(1),
   ]);
 
-  // Which document: a cluster that still exists, else the board's.
-  const scopeCluster = typeof c === "string" ? (clusters ?? []).find((x) => x.id === c) : undefined;
-  const scopeId = scopeCluster?.id ?? null;
+  // Which cluster: the one asked for if it still exists, else one that has a document, else the first.
   const scopeOf = (s: { sources: unknown }) => ((s.sources ?? {}) as Sources).cluster_id ?? null;
-  const versions = (allVersions ?? []).filter((s) => scopeOf(s) === scopeId);
   const documented = new Set((allVersions ?? []).map(scopeOf));
+  const scopeCluster =
+    (typeof c === "string" ? (clusters ?? []).find((x) => x.id === c) : undefined) ??
+    (clusters ?? []).find((x) => documented.has(x.id)) ??
+    clusters?.[0];
+  const scopeId = scopeCluster?.id ?? null;
+  const versions = (allVersions ?? []).filter((s) => scopeOf(s) === scopeId);
 
   const wanted = typeof v === "string" ? Number(v) : versions[0]?.version;
   const current = versions.find((s) => s.version === wanted) ?? versions[0];
@@ -92,7 +95,6 @@ export default async function SpecPage({ searchParams }: PageProps<"/board/spec"
         boardId={id}
         boardName={board.name}
         scope={scopeCluster ? clusterList.find((x) => x.id === scopeCluster.id)! : null}
-        boardHasDoc={documented.has(null)}
         referenceCount={scopeCluster ? (scopeCluster.members as unknown[]).length : references.length}
         markdown={doc?.markdown ?? ""}
         version={current ? { version: current.version, kind: current.kind, createdAt: current.created_at } : null}

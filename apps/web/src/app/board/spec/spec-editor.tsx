@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { BarButton, BarDivider, BarIcon, BarLink, Segmented } from "@/components/bar";
+import { BarButton, BarDivider, BarIcon, BarSelect, Segmented } from "@/components/bar";
 import { SiteHeader } from "@/components/site-header";
 import { generateSpec, regenerateSection, saveSpecEdit } from "@/lib/spec-actions";
 import { CITATION_HREF, linkCitations, slug, SPEC_SECTIONS, specHeadings, type SpecSectionKey } from "@/lib/spec";
@@ -185,92 +185,99 @@ export function SpecEditor({
     <div className="flex min-h-0 flex-1 flex-col">
       {(running || busyElsewhere) && <AutoRefresh intervalMs={4000} />}
 
-      <SiteHeader>
-        <BarLink href="/board" icon={BarIcon.back}>
-          Board
-        </BarLink>
-        <span className="font-hand text-base">design.md</span>
-        <select
-          value={scope?.id ?? ""}
-          onChange={(e) => openScope(e.target.value)}
-          aria-label="Which design.md"
-          className="h-8 max-w-60 truncate rounded-lg bg-foreground/[0.06] px-2 font-sans text-xs font-semibold text-foreground/80 hover:text-foreground"
-        >
-          <option value="">Whole board{boardHasDoc ? "" : " · none yet"}</option>
-          {clusters.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name} ({c.size}){c.hasDoc ? "" : " · none yet"}
-            </option>
-          ))}
-        </select>
-        {versions.length > 0 && (
-          <select
-            value={version?.version ?? ""}
-            onChange={(e) => router.push(`${pathname}?${scope ? `c=${scope.id}&` : ""}v=${e.target.value}`)}
-            aria-label="Version"
-            className="h-8 max-w-56 truncate rounded-lg bg-foreground/[0.06] px-2 font-sans text-xs text-foreground/70 hover:text-foreground"
-          >
-            {versions.map((s, i) => (
-              // Numbered within this document (the board's version numbers are shared by all of them).
-              <option key={s.version} value={s.version}>
-                v{versions.length - i} · {KIND_LABEL[s.kind] ?? s.kind} · {new Date(s.createdAt).toLocaleDateString()}
-              </option>
-            ))}
-          </select>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          {versions.length > 0 && (
-            <>
-              <Segmented
-                label="View"
-                value={view}
-                onChange={setView}
-                options={[
-                  { value: "preview", label: "Preview" },
-                  { value: "split", label: "Split" },
-                  { value: "edit", label: "Edit" },
-                ]}
-              />
-              <BarDivider />
-              {dirty && (
-                <BarButton primary disabled={pending || running} onClick={() => run(() => saveSpecEdit(boardId, text, scopeId), "Saved as a new version.")}>
-                  Save version
-                </BarButton>
-              )}
-              <BarButton
-                icon={BarIcon.copy}
-                onClick={() => navigator.clipboard.writeText(text).then(() => setMessage("Copied: paste it into your coding agent."))}
-              >
-                Copy
-              </BarButton>
-              <BarButton icon={BarIcon.download} onClick={download}>
-                Download
-              </BarButton>
-              <BarDivider />
-            </>
-          )}
-          {scope ? (
-            // A cluster's own design.md is written from that cluster: nothing to pick.
-            <BarButton
-              primary
-              icon={BarIcon.sparkle}
-              disabled={pending || running || dirty || Boolean(busyElsewhere)}
-              title={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
-              onClick={() => generate([])}
+      <SiteHeader
+        section="spec"
+        context={
+          <>
+            <BarSelect
+              strong
+              value={scope?.id ?? ""}
+              onChange={(e) => openScope(e.target.value)}
+              aria-label="Which design.md"
+              className="max-w-64"
             >
-              {versions.length ? "Regenerate" : "Generate"}
-            </BarButton>
-          ) : (
-            <GenerateMenu
-              label={versions.length ? "Regenerate" : "Generate"}
-              clusters={clusters}
-              disabled={pending || running || dirty || Boolean(busyElsewhere)}
-              disabledReason={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
-              onGenerate={generate}
-            />
-          )}
-        </div>
-      </SiteHeader>
+              <option value="">Whole board{boardHasDoc ? "" : " · none yet"}</option>
+              {clusters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.size}){c.hasDoc ? "" : " · none yet"}
+                </option>
+              ))}
+            </BarSelect>
+            {versions.length > 0 && (
+              <BarSelect
+                value={version?.version ?? ""}
+                onChange={(e) => router.push(`${pathname}?${scope ? `c=${scope.id}&` : ""}v=${e.target.value}`)}
+                aria-label="Version"
+                className="max-w-56"
+              >
+                {versions.map((s, i) => (
+                  // Numbered within this document (the board's version numbers are shared by all of them).
+                  <option key={s.version} value={s.version}>
+                    v{versions.length - i} · {KIND_LABEL[s.kind] ?? s.kind} · {new Date(s.createdAt).toLocaleDateString()}
+                  </option>
+                ))}
+              </BarSelect>
+            )}
+          </>
+        }
+        tools={
+          <>
+            {versions.length > 0 && (
+              <>
+                <Segmented
+                  label="View"
+                  value={view}
+                  onChange={setView}
+                  options={[
+                    { value: "preview", label: "Preview" },
+                    { value: "split", label: "Split" },
+                    { value: "edit", label: "Edit" },
+                  ]}
+                />
+                <BarDivider />
+                {dirty && (
+                  <BarButton primary disabled={pending || running} onClick={() => run(() => saveSpecEdit(boardId, text, scopeId), "Saved as a new version.")}>
+                    Save version
+                  </BarButton>
+                )}
+                <BarButton
+                  icon={BarIcon.copy}
+                  aria-label="Copy"
+                  title="Copy the markdown"
+                  onClick={() => navigator.clipboard.writeText(text).then(() => setMessage("Copied: paste it into your coding agent."))}
+                >
+                  {/* Icon only on narrower screens, so the bar never crowds. */}
+                  <span className="hidden xl:inline">Copy</span>
+                </BarButton>
+                <BarButton icon={BarIcon.download} aria-label="Download" title="Download design.md" onClick={download}>
+                  <span className="hidden xl:inline">Download</span>
+                </BarButton>
+                <BarDivider />
+              </>
+            )}
+            {scope ? (
+              // A cluster's own design.md is written from that cluster: nothing to pick.
+              <BarButton
+                primary
+                icon={BarIcon.sparkle}
+                disabled={pending || running || dirty || Boolean(busyElsewhere)}
+                title={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
+                onClick={() => generate([])}
+              >
+                {versions.length ? "Regenerate" : "Generate"}
+              </BarButton>
+            ) : (
+              <GenerateMenu
+                label={versions.length ? "Regenerate" : "Generate"}
+                clusters={clusters}
+                disabled={pending || running || dirty || Boolean(busyElsewhere)}
+                disabledReason={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
+                onGenerate={generate}
+              />
+            )}
+          </>
+        }
+      />
 
       <Banner
         running={running}

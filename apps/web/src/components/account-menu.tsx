@@ -31,7 +31,7 @@ export function AccountMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`bar-ctl grid size-8 place-items-center rounded-full border ${open ? "border-foreground/40" : "border-foreground/15"} hover:border-foreground/40`}
+        className={`bar-ctl grid size-8 shrink-0 place-items-center rounded-full transition-colors ${open ? "bg-(--strip-on) text-(--strip-on-text)" : "bg-foreground/[0.06] text-foreground/70 hover:bg-foreground/10 hover:text-foreground"}`}
       >
         <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden>
           <circle cx="8" cy="5.5" r="2.6" />

@@ -23,7 +23,7 @@ const SIGNED_URL_SECONDS = 60 * 60;
 const REUSE_MS = 40 * 60 * 1000;
 const signedCache = new Map<string, { url: string; until: number }>();
 
-async function signedUrls(supabase: SupabaseClient, paths: string[]) {
+export async function signedUrls(supabase: SupabaseClient, paths: string[]) {
   const now = Date.now();
   const urls = new Map<string, string>();
   const missing: string[] = [];

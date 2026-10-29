@@ -38,12 +38,12 @@ def prompt_budget(settings: Settings) -> int:
 
 
 def structured(settings: Settings, task: str, system: str, text: str, schema: type[T],
-               images: list[Image.Image] | None = None, model: str | None = None) -> T:
+               images: list[Image.Image] | None = None, model: str | None = None, max_tokens: int | None = None) -> T:
     model = model or model_for(settings, task)
     if settings.provider == "groq":
         # Only the vision model takes images; smaller images keep Groq's per-minute token budget.
         jpegs = [_jpeg(i, 768) for i in images or []] if model == settings.groq_vision_model else []
-        return _groq(settings, model, task, system, text, schema, jpegs)
+        return _groq(settings, model, task, system, text, schema, jpegs, max_tokens)
     jpegs = [_jpeg(i) for i in images or []]
     if settings.provider == "anthropic":
         return _claude(settings, model, task, system, text, schema, jpegs)
@@ -52,7 +52,8 @@ def structured(settings: Settings, task: str, system: str, text: str, schema: ty
     raise RuntimeError("no LLM provider configured")
 
 
-def _groq(settings: Settings, model: str, task: str, system: str, text: str, schema: type[T], jpegs: list[bytes]) -> T:
+def _groq(settings: Settings, model: str, task: str, system: str, text: str, schema: type[T], jpegs: list[bytes],
+          max_tokens: int | None = None) -> T:
     from groq import Groq
 
     global _groq_client
@@ -67,11 +68,16 @@ def _groq(settings: Settings, model: str, task: str, system: str, text: str, sch
     extra: dict = {}
     if model.startswith("qwen/"):
         extra["reasoning_format"] = "hidden"  # otherwise strict JSON decoding returns empty strings
+    elif model.startswith("openai/gpt-oss"):
+        # Its reasoning tokens count against max_completion_tokens: keep them few, or the JSON
+        # answer runs out of room ("max completion tokens reached before generating a valid document").
+        extra["reasoning_effort"] = "low"
     response = _groq_client.chat.completions.create(
         model=model,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": content}],
         response_format={"type": "json_schema", "json_schema": {"name": schema.__name__, "schema": strict_schema(schema), "strict": True}},
-        max_completion_tokens=6000 if task == "spec" else 2500,
+        # Groq counts this allowance against the per-minute token limit, so callers size it.
+        max_completion_tokens=max_tokens or (6000 if task == "spec" else 2500),
         **extra,
     )
     out = response.choices[0].message.content

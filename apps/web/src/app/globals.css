@@ -188,3 +188,17 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 }
 .tool-strip button { transition: background-color 120ms ease; }
 .tool-strip button:hover, .tool-strip button:active { transform: none; } /* no pen wobble on tools */
+
+/* design.md reader: colour swatches beside hex codes, citations as reference chips. */
+.prose-spec .spec-hex { display: inline-flex; align-items: center; gap: 0.3em; }
+.prose-spec .spec-swatch {
+  display: inline-block; width: 0.85em; height: 0.85em; border-radius: 3px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 20%, transparent);
+}
+.prose-spec a.spec-cite { text-decoration: none; color: inherit; }
+.spec-pulse {
+  display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 999px; background: currentColor;
+  animation: spec-pulse 1.4s ease-in-out infinite;
+}
+@keyframes spec-pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .spec-pulse { animation: none; } }

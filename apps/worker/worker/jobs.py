@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from . import vision
-from .cluster import filter_known, join_embeddings, suggest_clusters
+from .cluster import filter_known, similarity, suggest_from_similarity
 from .config import Settings
 from .db import Supabase, in_list
 from .embed import get_clip
@@ -145,7 +145,9 @@ class Worker:
                 "raw": result.model_dump(),
                 "image_hash": image_hash,
             }
+        before = self.db.select("analyses", {"reference_id": f"eq.{reference_id}", "select": "model_version"})
         self.db.insert("analyses", analysis_row, upsert_on="reference_id")
+        upgraded = bool(before) and _fallback(before[0]) and not _fallback(analysis_row)
 
         clip = get_clip(self.settings)
         text = " ".join(filter(None, [analysis_row.get("caption"), ", ".join(analysis_row.get("tags") or []),
@@ -160,7 +162,7 @@ class Worker:
 
         if image is not None and raw is not None and ref.get("thumbnail_path") == ref.get("file_path"):
             self._make_thumbnail(ref, image, len(raw))
-        self._maybe_queue_first_cluster(user_id, reference_id)
+        self._maybe_queue_cluster(user_id, reference_id, recluster=upgraded)
 
     def _cached_analysis(self, user_id: str, image_hash: str, reference_id: str) -> dict | None:
         """Same image saved twice → reuse its analysis instead of paying for another LLM call."""
@@ -186,20 +188,44 @@ class Worker:
         self.db.upload(path, buf.getvalue(), "image/webp")
         self.db.update("references", {"id": f"eq.{ref['id']}"}, {"thumbnail_path": path})
 
-    def _maybe_queue_first_cluster(self, user_id: str, reference_id: str) -> None:
+    def _maybe_queue_cluster(self, user_id: str, reference_id: str, recluster: bool = False) -> None:
+        """A board's first clustering once enough references are analysed; with `recluster`, again on
+        boards already clustered (a fallback analysis was replaced by a real one)."""
         boards = self.db.select("board_items", {"reference_id": f"eq.{reference_id}", "select": "board_id"})
         for b in boards:
             board = self.db.select("boards", {"id": f"eq.{b['board_id']}", "select": "clustered_at"})
-            if not board or board[0]["clustered_at"]:
+            if not board:
+                continue
+            if board[0]["clustered_at"]:
+                if recluster:
+                    self._queue_cluster(user_id, b["board_id"])
                 continue
             members = [i["reference_id"] for i in self.db.select("board_items", {"board_id": f"eq.{b['board_id']}", "select": "reference_id"})]
             analysed = self.db.select("embeddings", {"reference_id": in_list(members), "select": "reference_id"})
             if len(analysed) >= FIRST_CLUSTER_AT:
-                try:
-                    self.db.insert("jobs", {"user_id": user_id, "kind": "cluster", "board_id": b["board_id"]})
-                except RuntimeError as err:
-                    if "23505" not in str(err):  # already queued
-                        raise
+                self._queue_cluster(user_id, b["board_id"])
+
+    def _queue_cluster(self, user_id: str, board_id: str) -> None:
+        try:
+            self.db.insert("jobs", {"user_id": user_id, "kind": "cluster", "board_id": board_id})
+        except RuntimeError as err:
+            if "23505" not in str(err):  # already queued
+                raise
+
+    def requeue_fallbacks(self) -> int:
+        """Re-queues analysis for references that only got fallback tags (quota hit, outage), when a
+        model is configured. Runs from the worker loop now and then; returns how many were queued."""
+        if not self.settings.provider:
+            return 0
+        queued = 0
+        for row in self.db.select("analyses", {"model_version": f"eq.{vision.HEURISTIC_VERSION}", "select": "reference_id,user_id"}):
+            try:
+                self.db.insert("jobs", {"user_id": row["user_id"], "kind": "analyze", "reference_id": row["reference_id"]})
+                queued += 1
+            except RuntimeError as err:
+                if "23505" not in str(err):  # already queued
+                    raise
+        return queued
 
     def _wait_for_analyses(self, board_id: str, ids: list[str] | None = None) -> None:
         """Clustering and specs need every reference analysed: defer while analyses are pending."""
@@ -217,24 +243,29 @@ class Worker:
         if not ids_on_board:
             return
         self._wait_for_analyses(board_id, ids_on_board)
-        emb =self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "select": "reference_id,image_embedding,text_embedding"})
-        ana = {a["reference_id"]: a for a in self.db.select("analyses", {"reference_id": in_list(ids_on_board), "select": "reference_id,tags,mood,caption"})}
+        emb = self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "select": "reference_id,image_embedding,text_embedding"})
+        ana = {a["reference_id"]: a for a in self.db.select("analyses", {
+            "reference_id": in_list(ids_on_board), "select": "reference_id,tags,mood,components,caption,model_version"})}
 
-        ids, vectors = [], []
+        ids, images, texts = [], [], []
         for e in emb:
             img, txt = _parse_vec(e["image_embedding"]), _parse_vec(e["text_embedding"])
             if img is None and txt is None:
                 continue
             ids.append(e["reference_id"])
-            vectors.append(join_embeddings(img, txt))
-        tags = {r: (ana.get(r, {}).get("tags") or []) + (ana.get(r, {}).get("mood") or []) for r in ids}
+            images.append(img)
+            # Fallback analyses (no model) carry generic tags: those would group references by the
+            # gap in their data, so they are compared on the picture alone.
+            texts.append(None if _fallback(ana.get(e["reference_id"])) else txt)
+        tags = {r: [] if _fallback(ana.get(r)) else (ana[r].get("tags") or []) + (ana[r].get("mood") or []) for r in ids}
+        sim_tags = [tags[r] + ([] if _fallback(ana.get(r)) else ana[r].get("components") or []) for r in ids]
 
         existing = self.db.select("clusters", {"board_id": f"eq.{board_id}", "select": "id,name,status,source,cluster_members(reference_id)"})
         members_of = lambda c: {m["reference_id"] for m in c["cluster_members"]}  # noqa: E731
         rejected = [members_of(c) for c in existing if c["status"] == "rejected"]
         protected = [members_of(c) for c in existing if c["status"] == "accepted" or c["source"] == "user"]
 
-        suggestions = suggest_clusters(ids, np.array(vectors), tags) if len(ids) >= 4 else []
+        suggestions = suggest_from_similarity(ids, similarity(images, texts, sim_tags), tags) if len(ids) >= 4 else []
         suggestions = filter_known(suggestions, rejected, protected)
 
         # Replace only previous *suggestions*; accepted, user-made and rejected clusters stay.
@@ -268,6 +299,11 @@ def _open(raw: bytes) -> Image.Image | None:
         return img
     except Exception:  # noqa: BLE001 - SVG and other non-raster files
         return None
+
+
+def _fallback(analysis: dict | None) -> bool:
+    """Tags from palette and metadata only (no model ran): too generic to cluster on."""
+    return not analysis or analysis.get("model_version") == vision.HEURISTIC_VERSION
 
 
 def _clean(values: list[str]) -> list[str]:

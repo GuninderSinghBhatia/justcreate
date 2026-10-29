@@ -456,8 +456,11 @@ function tiltFor(referenceId: string) {
 
 /** The reference's thumbnail as a data URL (so exports and copies work), or a text card when it has no image. */
 async function imageFor(reference: ReferenceView, w: number, h: number) {
-  if (reference.imageUrl) {
-    const blob = await (await fetch(reference.imageUrl)).blob();
+  // Saved images show the original file: their thumbnail is a 640px card for the grid, soft when
+  // zoomed in. Other types keep theirs (a full-page capture's card is the visible viewport).
+  const url = reference.type === "image" ? (reference.fileUrl ?? reference.imageUrl) : reference.imageUrl;
+  if (url) {
+    const blob = await (await fetch(url)).blob();
     const bitmap = await createImageBitmap(blob);
     const size = { width: bitmap.width, height: bitmap.height };
     bitmap.close();

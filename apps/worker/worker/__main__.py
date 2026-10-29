@@ -12,10 +12,13 @@ import logging
 import os
 import sys
 import threading
+import time
 
 from .config import load_settings
 from .db import Supabase
 from .jobs import Worker
+
+REQUEUE_SECONDS = 3600
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("worker")
@@ -41,8 +44,14 @@ def serve() -> None:
     def loop() -> None:
         db = Supabase(settings)
         worker = Worker(settings, db)
+        next_requeue = 0.0
         while True:
             try:
+                # Fallback-tagged references get another try at a real analysis every hour.
+                if time.monotonic() >= next_requeue:
+                    next_requeue = time.monotonic() + REQUEUE_SECONDS
+                    if queued := worker.requeue_fallbacks():
+                        log.info("re-queued %d fallback-tagged references for analysis", queued)
                 worker.run_due()
             except Exception:  # noqa: BLE001 - keep polling after transient failures
                 log.exception("job loop error")
@@ -71,16 +80,7 @@ def reanalyze() -> None:
     settings = load_settings()
     db = Supabase(settings)
     try:
-        rows = db.select("analyses", {"model_version": "eq.heuristic-v1", "select": "reference_id,user_id"})
-        queued = 0
-        for row in rows:
-            try:
-                db.insert("jobs", {"user_id": row["user_id"], "kind": "analyze", "reference_id": row["reference_id"]})
-                queued += 1
-            except RuntimeError as err:
-                if "23505" not in str(err):  # already queued
-                    raise
-        log.info("queued %d of %d fallback-tagged references for re-analysis", queued, len(rows))
+        log.info("queued %d fallback-tagged references for re-analysis", Worker(settings, db).requeue_fallbacks())
     finally:
         db.close()
 

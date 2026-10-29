@@ -15,7 +15,7 @@ type Tool =
   | "selection" | "rectangle" | "diamond" | "ellipse" | "arrow" | "line" | "freedraw" | "text"
   | "hand" | "image" | "eraser" | "frame" | "embeddable" | "laser";
 
-/** Canvas colours (globals.css: .board-canvas[data-paper]); sage is the default. */
+/** Canvas colours (globals.css: :root[data-paper], also the top bar's colour); sage is the default. */
 export const PAPERS = [
   { key: "sage", name: "Sage", swatch: "#e3e9dd" },
   { key: "slate", name: "Slate", swatch: "#e2e7ee" },

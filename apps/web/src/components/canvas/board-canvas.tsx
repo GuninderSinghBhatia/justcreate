@@ -86,6 +86,8 @@ export function BoardCanvas({
   });
   const choosePaper = useCallback((next: Paper) => {
     setPaper(next);
+    // On <html>, so the top bar (and every page) takes the same colour as the canvas.
+    document.documentElement.dataset.paper = next;
     try {
       localStorage.setItem(PAPER_KEY, next);
     } catch {
@@ -399,7 +401,6 @@ export function BoardCanvas({
     <div
       ref={container}
       className="board-canvas animate-fade relative isolate h-full w-full"
-      data-paper={paper}
       onDragOverCapture={(e) => {
         if (e.dataTransfer.types.includes(REFERENCE_DRAG_TYPE)) e.preventDefault();
       }}

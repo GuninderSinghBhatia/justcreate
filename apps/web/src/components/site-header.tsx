@@ -14,8 +14,8 @@ type Section = "board" | "spec";
  */
 export function SiteHeader({ section, context, tools }: { section?: Section; context?: React.ReactNode; tools?: React.ReactNode }) {
   return (
-    // z-30: the blur makes the bar its own stacking layer; its menus must stay above the canvas.
-    <header className="relative z-30 flex h-12 shrink-0 items-center gap-1 border-b border-foreground/10 bg-background/85 px-3 font-sans text-[13px] backdrop-blur sm:px-4">
+    // z-30: its menus must stay above the canvas. Coloured like the canvas (--bar-bg, globals.css).
+    <header data-bar-root className="relative z-30 flex h-12 shrink-0 items-center gap-1 border-b border-foreground/10 bg-(--bar-bg) px-3 font-sans text-[13px] sm:px-4">
       <Link href="/board" className="bar-ctl wordmark mr-1 rounded-lg px-1.5 py-1 text-[15px] leading-none hover:bg-foreground/[0.05]">
         JUSTCREATE
       </Link>

@@ -219,14 +219,19 @@ button.bar-ctl:hover, button.bar-ctl:active, a.bar-ctl:hover, a.bar-ctl:active {
 }
 .prose-spec h3 + p:has(> .spec-figure) { margin-top: 0.25rem; }
 
-/* Canvas colours, picked from the tool strip's More menu (default sage). "paper" is the
-   :root warm beige above. Each has a dark-mode twin; prints, mats and tape stay as they are. */
-.board-canvas[data-paper="sage"] { --board-paper: #e3e9dd; --board-vignette: rgb(60 80 50 / 0.12); }
-.board-canvas[data-paper="slate"] { --board-paper: #e2e7ee; --board-vignette: rgb(40 60 90 / 0.12); }
-.board-canvas[data-paper="blush"] { --board-paper: #f1e3e0; --board-vignette: rgb(110 60 50 / 0.10); }
+/* Canvas colours, picked in the tool strip's More menu and kept on <html data-paper> (layout.tsx
+   sets it from the saved choice before first paint), so the top bar can match the canvas on every
+   page. No attribute = sage. "paper" is the original warm beige. Each has a dark-mode twin. */
+:root, :root[data-paper="sage"] { --board-paper: #e3e9dd; --board-vignette: rgb(60 80 50 / 0.12); }
+:root[data-paper="slate"] { --board-paper: #e2e7ee; --board-vignette: rgb(40 60 90 / 0.12); }
+:root[data-paper="blush"] { --board-paper: #f1e3e0; --board-vignette: rgb(110 60 50 / 0.10); }
+:root[data-paper="paper"] { --board-paper: #f5efe3; --board-vignette: rgb(120 90 50 / 0.10); }
 @media (prefers-color-scheme: dark) {
-  .board-canvas[data-paper="sage"] { --board-paper: #191f1a; --board-vignette: rgb(0 0 0 / 0.35); }
-  .board-canvas[data-paper="slate"] { --board-paper: #171b21; --board-vignette: rgb(0 0 0 / 0.35); }
-  .board-canvas[data-paper="blush"] { --board-paper: #211a1a; --board-vignette: rgb(0 0 0 / 0.35); }
+  :root, :root[data-paper="sage"] { --board-paper: #191f1a; --board-vignette: rgb(0 0 0 / 0.35); }
+  :root[data-paper="slate"] { --board-paper: #171b21; --board-vignette: rgb(0 0 0 / 0.35); }
+  :root[data-paper="blush"] { --board-paper: #211a1a; --board-vignette: rgb(0 0 0 / 0.35); }
+  :root[data-paper="paper"] { --board-paper: #1c1a17; --board-vignette: rgb(0 0 0 / 0.35); }
 }
-.board-canvas .board-paper { transition: background-color 300ms ease; }
+/* The top bar in the canvas colour, a touch lighter: one surface with the board. */
+:root { --bar-bg: color-mix(in srgb, var(--board-paper) 72%, var(--background)); }
+.board-paper, header[data-bar-root] { transition: background-color 300ms ease; }

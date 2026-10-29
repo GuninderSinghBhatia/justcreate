@@ -34,7 +34,7 @@ export function LibrarySidebar({ onBoard, onAdd }: { onBoard: Set<string>; onAdd
   }, [q, inbox]);
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-foreground/20 bg-background">
+    <aside className="animate-panel-left flex w-64 shrink-0 flex-col border-r border-foreground/20 bg-background">
       <div className="flex flex-col gap-2 border-b border-foreground/20 p-3">
         <input
           type="search"

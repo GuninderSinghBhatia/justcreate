@@ -322,7 +322,12 @@ export function BoardCanvas({
 
   // ---------- double-click an image: see it full size ----------
   const [zoomed, setZoomed] = useState<Zoomed | null>(null);
-  const closeZoom = useCallback(() => setZoomed(null), []);
+  const zoomSelection = useRef<AppState["selectedElementIds"]>({});
+  const closeZoom = useCallback(() => {
+    setZoomed(null);
+    // Excalidraw sees the Esc that closed the view and drops the selection: put it back.
+    api?.updateScene({ appState: { selectedElementIds: zoomSelection.current }, captureUpdate: CaptureUpdateAction.NEVER });
+  }, [api]);
   // Capture phase, so Excalidraw's own double-click (image crop mode) doesn't also run.
   const onDoubleClick = (e: React.MouseEvent) => {
     if (!api || !(e.target instanceof HTMLCanvasElement)) return;
@@ -335,7 +340,18 @@ export function BoardCanvas({
     const src = reference?.fileUrl ?? reference?.imageUrl ?? dataURL;
     if (!src) return;
     e.stopPropagation();
-    setZoomed({ src, fallback: reference?.imageUrl ?? dataURL, title: reference?.title, sourceUrl: reference?.page_url ?? reference?.source_url });
+    // Where the image sits on screen, so the full view can grow out of it.
+    const st = api.getAppState();
+    zoomSelection.current = st.selectedElementIds;
+    const z = st.zoom.value;
+    const from = {
+      left: st.offsetLeft + (image.x + st.scrollX) * z,
+      top: st.offsetTop + (image.y + st.scrollY) * z,
+      width: image.width * z,
+      height: image.height * z,
+      angle: image.angle,
+    };
+    setZoomed({ src, fallback: reference?.imageUrl ?? dataURL, title: reference?.title, sourceUrl: reference?.page_url ?? reference?.source_url, from });
   };
 
   // ---------- drop from the library sidebar ----------
@@ -351,7 +367,7 @@ export function BoardCanvas({
   return (
     <div
       ref={container}
-      className="board-canvas relative isolate h-full w-full"
+      className="board-canvas animate-fade relative isolate h-full w-full"
       onDragOverCapture={(e) => {
         if (e.dataTransfer.types.includes(REFERENCE_DRAG_TYPE)) e.preventDefault();
       }}

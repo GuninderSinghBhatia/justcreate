@@ -18,7 +18,7 @@ export function ReferenceCard({
 
   return (
     <article
-      className={`group overflow-hidden rounded-lg border bg-foreground/[0.02] transition-colors ${
+      className={`group overflow-hidden rounded-lg border bg-foreground/[0.02] transition-[border-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-y-0 ${
         selected ? "border-foreground" : "border-foreground/10 hover:border-foreground/30"
       }`}
     >

@@ -1,28 +1,82 @@
 @import "tailwindcss";
 
+/* Excalidraw-like world: ink on paper, hand-drawn type and strokes, no accent colour. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdfbf6; /* paper */
+  --foreground: #1e1e1e; /* Excalidraw's default stroke */
+  --paper-dot: rgb(30 30 30 / 0.07);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121212; /* Excalidraw dark canvas */
+    --foreground: #e3e3e8;
+    --paper-dot: rgb(227 227 232 / 0.06);
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
+  --font-hand: var(--font-excalifont), var(--font-nunito), cursive;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Hand-drawn corners: uneven elliptical radii, like a pen closing a box. */
+@theme {
+  --radius-sm: 5px 3px 6px 3px / 3px 6px 3px 5px;
+  --radius-md: 9px 4px 11px 5px / 5px 10px 4px 9px;
+  --radius-lg: 14px 5px 16px 6px / 6px 15px 5px 13px;
+  --radius-xl: 18px 7px 20px 8px / 8px 19px 7px 17px;
+  --radius-2xl: 24px 9px 26px 10px / 10px 25px 9px 22px;
+}
+
+/* An ink stroke: thicker than a hairline, as Excalidraw draws boxes. */
+@utility sketch {
+  border-width: 1.5px;
+  border-style: solid;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  /* Excalidraw's dotted grid, faint enough to read on */
+  background-image: radial-gradient(var(--paper-dot) 1px, transparent 1.2px);
+  background-size: 22px 22px;
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Handwriting for headings and UI labels; long text and form input stay in Nunito.
+   In the base layer so utilities (font-sans on a card) can still override it. */
+@layer base {
+  h1, h2, h3, h4, button, summary, nav, th, label, select, [role="tab"], .font-hand {
+    font-family: var(--font-hand);
+    font-size-adjust: 0.5; /* Excalifont's x-height runs small: match Nunito's apparent size */
+    font-synthesis: none; /* one weight only: never smear a fake bold; size carries hierarchy */
+  }
+  input, textarea { font-family: var(--font-sans); font-size-adjust: none; }
+  pre, code { font-family: var(--font-mono); font-size-adjust: none; }
+}
+.font-sans { font-size-adjust: none; }
+
+/* Controls wobble a little under the pen. */
+button:not(:disabled), a[class*="rounded"] {
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease, border-color 200ms ease;
+}
+button:not(:disabled):hover, a[class*="rounded"]:hover { transform: rotate(-0.8deg); }
+button:not(:disabled):active, a[class*="rounded"]:active { transform: rotate(-0.8deg) scale(0.97); }
+
+/* Browser surfaces in the same ink. */
+::selection { background: color-mix(in srgb, var(--foreground) 18%, transparent); color: inherit; }
+* { caret-color: var(--foreground); scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 35%, transparent) transparent; }
+:focus-visible { outline: 2px dashed var(--foreground); outline-offset: 3px; }
+a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):hover, a[class*="rounded"]:hover, button:not(:disabled):active, a[class*="rounded"]:active { transform: none; }
 }
 
 /* design.md preview (no typography plugin: just what a spec needs) */

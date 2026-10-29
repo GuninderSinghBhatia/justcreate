@@ -31,7 +31,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         Skip to content
       </a>
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
-        <span className="text-base font-semibold tracking-tight">JUSTCREATE</span>
+        <span className="font-hand text-xl">JUSTCREATE</span>
         <Link href="/login" className={`${button} text-sm`}>
           Sign in
         </Link>
@@ -41,7 +41,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         {/* Hero */}
         <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-24 pt-12 sm:px-6 lg:grid-cols-2">
           <div className="flex flex-col gap-6">
-            <h1 className="max-w-170 bg-gradient-to-r from-black to-[#666666] bg-clip-text text-5xl font-semibold tracking-tight text-transparent text-balance dark:from-white dark:to-[#9B9B9B] sm:text-6xl">
+            <h1 className="max-w-170 text-5xl text-balance">
               Turn the designs you save into a spec your agent can build
             </h1>
             <p className="max-w-170 text-lg text-foreground/70 text-pretty">
@@ -61,7 +61,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </section>
 
         {/* Problem → solution */}
-        <section className="border-y border-foreground/10 bg-foreground/2">
+        <section className="border-y border-foreground/20 bg-foreground/2">
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-24 sm:px-6 md:grid-cols-2">
             <Reveal>
               <h2 className="text-3xl font-semibold tracking-tight text-balance">Your inspiration is scattered. Your agent sees none of it.</h2>
@@ -91,7 +91,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </h2>
           <div className="grid gap-6 sm:grid-cols-2">
             {BENEFITS.map(([title, body]) => (
-              <Reveal key={title} className="flex flex-col gap-3 rounded-2xl border border-foreground/10 p-6">
+              <Reveal key={title} className="flex flex-col gap-3 rounded-2xl sketch border-foreground/70 p-6">
                 <h3 className="text-lg font-semibold">{title}</h3>
                 <p className="text-base text-foreground/70 text-pretty">{body}</p>
               </Reveal>
@@ -100,7 +100,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </section>
 
         {/* How it works */}
-        <section className="border-t border-foreground/10">
+        <section className="border-t border-foreground/20">
           <div className="mx-auto w-full max-w-6xl px-4 py-24 sm:px-6">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight">How it works</h2>
             <ol className="grid gap-8 md:grid-cols-3">
@@ -118,12 +118,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </section>
 
         {/* FAQ */}
-        <section className="border-t border-foreground/10">
+        <section className="border-t border-foreground/20">
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-24 sm:px-6 md:grid-cols-[1fr_2fr]">
             <h2 className="text-3xl font-semibold tracking-tight">Questions</h2>
             <div className="flex flex-col">
               {FAQ.map(([q, a]) => (
-                <details key={q} className="group border-b border-foreground/10 py-4">
+                <details key={q} className="group border-b border-foreground/20 py-4">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold focus-visible:outline-2">
                     {q}
                     <span aria-hidden className="text-foreground/50 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-open:rotate-45">
@@ -138,7 +138,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </section>
 
         {/* Final CTA */}
-        <section className="border-t border-foreground/10">
+        <section className="border-t border-foreground/20">
           <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-24 sm:px-6">
             <h2 className="max-w-170 text-4xl font-semibold tracking-tight text-balance">Your next page should look like your board.</h2>
             <div className="flex flex-wrap items-center gap-4">
@@ -156,7 +156,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 }
 
 const button =
-  "inline-flex items-center rounded-full border border-foreground/20 px-3 py-2 font-semibold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-foreground/50 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2";
+  "inline-flex items-center rounded-full sketch border-foreground/70 px-3 py-2 font-semibold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-foreground/50 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2";
 const primary = "border-foreground bg-foreground px-4 text-background hover:opacity-90";
 
 const BENEFITS = [
@@ -184,8 +184,8 @@ const FAQ = [
 /** Hero visual: a real design.md excerpt, the product's output. */
 function SpecPreview() {
   return (
-    <figure className="rounded-2xl border border-foreground/10 bg-foreground/3 p-2 shadow-sm">
-      <div className="rounded-xl border border-foreground/10 bg-background p-6 font-mono text-xs leading-relaxed">
+    <figure className="rounded-2xl sketch border-foreground/70 bg-foreground/3 p-2 shadow-sm">
+      <div className="rounded-xl sketch border-foreground/70 bg-background p-6 font-mono text-xs leading-relaxed">
         <p className="text-foreground/50"># design.md — Night shift dashboards</p>
         <p className="mt-4 font-semibold">## 2. Color palette</p>
         <div className="mt-3 flex flex-col gap-2">
@@ -196,7 +196,7 @@ function SpecPreview() {
             ["#2E283D", "Surface", "Inferred", "c41b88"],
           ].map(([hex, role, kind, ref]) => (
             <p key={hex} className="flex flex-wrap items-center gap-2">
-              <span aria-hidden className="h-3 w-3 rounded-sm border border-foreground/10" style={{ background: hex }} />
+              <span aria-hidden className="h-3 w-3 rounded-sm sketch border-foreground/70" style={{ background: hex }} />
               <span className="w-16">{hex}</span>
               <span className="w-28 text-foreground/70">{role}</span>
               <span className="text-foreground/50">

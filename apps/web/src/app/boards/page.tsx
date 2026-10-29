@@ -58,7 +58,7 @@ export default async function BoardsPage() {
               name="name"
               placeholder="New board name"
               aria-label="New board name"
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-1.5 text-sm"
+              className="rounded-md sketch border-foreground/70 bg-transparent px-3 py-1.5 text-sm"
             />
             <button className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background">
               Create board
@@ -80,7 +80,7 @@ export default async function BoardsPage() {
                 <li key={b.id}>
                   <Link
                     href={`/boards/${b.id}`}
-                    className="block overflow-hidden rounded-lg border border-foreground/10 hover:border-foreground/30"
+                    className="block overflow-hidden rounded-lg sketch border-foreground/70 hover:border-foreground/30"
                   >
                     <span className="block aspect-[4/3] bg-foreground/5">
                       {src && (

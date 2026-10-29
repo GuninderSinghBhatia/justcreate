@@ -1,0 +1,3 @@
+Excalifont-Regular.woff2 — Excalifont by Excalidraw (https://plus.excalidraw.com/excalifont).
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org).
+The full license text is embedded in the font file. Latin subset as shipped in @excalidraw/excalidraw 0.18.1.

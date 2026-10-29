@@ -34,15 +34,15 @@ export function LibrarySidebar({ onBoard, onAdd }: { onBoard: Set<string>; onAdd
   }, [q, inbox]);
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-foreground/10 bg-background">
-      <div className="flex flex-col gap-2 border-b border-foreground/10 p-3">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-foreground/20 bg-background">
+      <div className="flex flex-col gap-2 border-b border-foreground/20 p-3">
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search library…"
           aria-label="Search library"
-          className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1.5 text-sm"
         />
         <label className="flex items-center gap-2 text-xs text-foreground/60">
           <input type="checkbox" checked={inbox} onChange={(e) => setInbox(e.target.checked)} />

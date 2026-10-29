@@ -80,11 +80,11 @@ export function ReferenceDrawer({
       aria-label="Reference details"
       className={
         docked
-          ? "flex w-96 shrink-0 flex-col overflow-y-auto border-l border-foreground/10 bg-background"
-          : "fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col overflow-y-auto border-l border-foreground/10 bg-background shadow-2xl"
+          ? "flex w-96 shrink-0 flex-col overflow-y-auto border-l border-foreground/20 bg-background"
+          : "fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col overflow-y-auto border-l border-foreground/20 bg-background shadow-2xl"
       }
     >
-      <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-foreground/20 px-4 py-3">
         <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-xs uppercase tracking-wide">{r.type}</span>
         <button onClick={onClose} className="text-sm text-foreground/60 hover:text-foreground" aria-label="Close">
           Close ✕
@@ -145,7 +145,7 @@ export function ReferenceDrawer({
         </div>
 
         {r.analysis && (
-          <section className="flex flex-col gap-2 border-t border-foreground/10 pt-4">
+          <section className="flex flex-col gap-2 border-t border-foreground/20 pt-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">AI analysis</h3>
             {r.analysis.caption && <p className="text-foreground/80">{r.analysis.caption}</p>}
             {r.analysis.palette.length > 0 && (
@@ -154,7 +154,7 @@ export function ReferenceDrawer({
                   <span
                     key={hex}
                     title={hex}
-                    className="h-6 w-6 rounded border border-foreground/10"
+                    className="h-6 w-6 rounded sketch border-foreground/70"
                     style={{ background: hex }}
                   />
                 ))}
@@ -168,7 +168,7 @@ export function ReferenceDrawer({
           </section>
         )}
 
-        <section className="flex flex-col gap-2 border-t border-foreground/10 pt-4">
+        <section className="flex flex-col gap-2 border-t border-foreground/20 pt-4">
           {boards.length > 0 && (
             <label className="flex items-center gap-2 text-xs text-foreground/70">
               Add to board
@@ -179,7 +179,7 @@ export function ReferenceDrawer({
                   if (target) run(() => addReferencesToBoard(target, [r.id]), "Added to board");
                   e.target.value = "";
                 }}
-                className="flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1"
+                className="flex-1 rounded-md sketch border-foreground/70 bg-transparent px-2 py-1"
               >
                 <option value="">Choose…</option>
                 {boards
@@ -221,7 +221,7 @@ export function ReferenceDrawer({
   );
 }
 
-const inputClass = "w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1.5";
+const inputClass = "w-full rounded-md sketch border-foreground/70 bg-transparent px-2 py-1.5";
 const linkClass = "text-foreground/70 underline hover:text-foreground";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

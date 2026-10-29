@@ -37,7 +37,7 @@ export function FiltersBar({ labels, showInbox = true }: { labels: string[]; sho
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search title, note, labels…"
         aria-label="Search"
-        className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-1.5 sm:w-64"
+        className="w-full rounded-md sketch border-foreground/70 bg-transparent px-3 py-1.5 sm:w-64"
       />
       {showInbox && (
         <Chip label="Inbox" active={inbox} onClick={() => set("view", inbox ? null : "inbox")} />
@@ -51,7 +51,7 @@ export function FiltersBar({ labels, showInbox = true }: { labels: string[]; sho
           value={params.get("label") ?? ""}
           onChange={(e) => set("label", e.target.value || null)}
           aria-label="Filter by label"
-          className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1.5"
         >
           <option value="">Any label</option>
           {labels.map((l) => (
@@ -67,7 +67,7 @@ export function FiltersBar({ labels, showInbox = true }: { labels: string[]; sho
           type="date"
           value={params.get("from") ?? ""}
           onChange={(e) => set("from", e.target.value || null)}
-          className="rounded-md border border-foreground/20 bg-transparent px-2 py-1"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1"
         />
       </label>
       <label className="flex items-center gap-1 text-foreground/60">
@@ -76,7 +76,7 @@ export function FiltersBar({ labels, showInbox = true }: { labels: string[]; sho
           type="date"
           value={params.get("to") ?? ""}
           onChange={(e) => set("to", e.target.value || null)}
-          className="rounded-md border border-foreground/20 bg-transparent px-2 py-1"
+          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1"
         />
       </label>
     </div>

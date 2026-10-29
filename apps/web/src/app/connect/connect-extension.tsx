@@ -65,7 +65,7 @@ export function ConnectExtension() {
       )}
       {status === "error" && <p className="text-red-600">{message}</p>}
       {(status === "no-extension" || status === "error") && (
-        <button onClick={connect} className="self-start rounded-md border border-foreground/20 px-3 py-1.5">
+        <button onClick={connect} className="self-start rounded-md sketch border-foreground/70 px-3 py-1.5">
           Try again
         </button>
       )}

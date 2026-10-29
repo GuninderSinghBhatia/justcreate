@@ -6,7 +6,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
   return (
     <>
       <header className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-        <Link href="/" className="text-base font-semibold tracking-tight">
+        <Link href="/" className="font-hand text-xl">
           JUSTCREATE
         </Link>
       </header>

@@ -50,7 +50,7 @@ export function TokenManager({ tokens, appUrl, mcpPath }: { tokens: TokenRow[]; 
           value={name}
           onChange={(e) => setName(e.target.value)}
           aria-label="Token name"
-          className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-1.5 text-sm"
+          className="min-w-0 flex-1 rounded-md sketch border-foreground/70 bg-transparent px-3 py-1.5 text-sm"
         />
         <button disabled={pending} className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50">
           Create token
@@ -59,7 +59,7 @@ export function TokenManager({ tokens, appUrl, mcpPath }: { tokens: TokenRow[]; 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {fresh && (
-        <div className="flex flex-col gap-2 rounded-md border border-foreground/30 p-3 text-sm">
+        <div className="flex flex-col gap-2 rounded-md sketch border-foreground/80 p-3 text-sm">
           <p className="font-medium">Copy this token now — it won&apos;t be shown again.</p>
           <CopyBox text={fresh} label="API token" />
         </div>
@@ -92,7 +92,7 @@ export function TokenManager({ tokens, appUrl, mcpPath }: { tokens: TokenRow[]; 
           </thead>
           <tbody>
             {tokens.map((t) => (
-              <tr key={t.id} className={`border-t border-foreground/10 ${t.revoked ? "text-foreground/40" : ""}`}>
+              <tr key={t.id} className={`border-t border-foreground/20 ${t.revoked ? "text-foreground/40" : ""}`}>
                 <td className="py-2">{t.name}</td>
                 <td>
                   <code>{t.prefix}…</code>
@@ -130,7 +130,7 @@ function CopyBox({ text, label }: { text: string; label: string }) {
       <button
         type="button"
         onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true))}
-        className="absolute right-2 top-2 rounded border border-foreground/20 bg-background px-2 py-0.5 text-xs"
+        className="absolute right-2 top-2 rounded sketch border-foreground/70 bg-background px-2 py-0.5 text-xs"
       >
         {copied ? "Copied" : "Copy"}
       </button>

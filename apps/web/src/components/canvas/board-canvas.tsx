@@ -20,6 +20,7 @@ import type { ReferenceView } from "@/lib/references";
 import { uploadImages } from "@/lib/upload";
 import { createDecor, DecorOver, DecorUnder } from "./decor";
 import { REFERENCE_DRAG_TYPE } from "./drag";
+import { Lightbox, type Zoomed } from "./lightbox";
 
 const SAVE_DELAY_MS = 800;
 
@@ -305,6 +306,24 @@ export function BoardCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onReady is an inline callback
   }, [api, place]);
 
+  // ---------- double-click an image: see it full size ----------
+  const [zoomed, setZoomed] = useState<Zoomed | null>(null);
+  const closeZoom = useCallback(() => setZoomed(null), []);
+  // Capture phase, so Excalidraw's own double-click (image crop mode) doesn't also run.
+  const onDoubleClick = (e: React.MouseEvent) => {
+    if (!api || !(e.target instanceof HTMLCanvasElement)) return;
+    const point = viewportCoordsToSceneCoords({ clientX: e.clientX, clientY: e.clientY }, api.getAppState());
+    const image = imageAt(api.getSceneElements(), point.x, point.y);
+    if (!image) return;
+    const refId = referenceIdOf(image);
+    const reference = refId ? lookup(refId) : undefined;
+    const dataURL = image.fileId ? api.getFiles()[image.fileId]?.dataURL : undefined;
+    const src = reference?.fileUrl ?? reference?.imageUrl ?? dataURL;
+    if (!src) return;
+    e.stopPropagation();
+    setZoomed({ src, fallback: reference?.imageUrl ?? dataURL, title: reference?.title, sourceUrl: reference?.page_url ?? reference?.source_url });
+  };
+
   // ---------- drop from the library sidebar ----------
   const onDrop = (e: React.DragEvent) => {
     const raw = e.dataTransfer.getData(REFERENCE_DRAG_TYPE);
@@ -323,6 +342,7 @@ export function BoardCanvas({
         if (e.dataTransfer.types.includes(REFERENCE_DRAG_TYPE)) e.preventDefault();
       }}
       onDropCapture={onDrop}
+      onDoubleClickCapture={onDoubleClick}
     >
       <DecorUnder decor={decor} />
       <Excalidraw
@@ -345,6 +365,7 @@ export function BoardCanvas({
         </WelcomeScreen>
       </Excalidraw>
       <DecorOver decor={decor} />
+      {zoomed && <Lightbox image={zoomed} onClose={closeZoom} />}
     </div>
   );
 }
@@ -362,6 +383,23 @@ function imageSkeleton(referenceId: string, x: number, y: number, w: number, h: 
     status: "saved" as const,
     customData: { referenceId },
   };
+}
+
+/** The topmost image under a scene point, allowing for rotation. */
+function imageAt(elements: readonly ExcalidrawElement[], x: number, y: number) {
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const el = elements[i];
+    if (el.type !== "image" || el.isDeleted) continue;
+    // Rotate the point into the image's own frame, about its centre.
+    const cx = el.x + el.width / 2;
+    const cy = el.y + el.height / 2;
+    const cos = Math.cos(-el.angle);
+    const sin = Math.sin(-el.angle);
+    const dx = (x - cx) * cos - (y - cy) * sin;
+    const dy = (x - cx) * sin + (y - cy) * cos;
+    if (Math.abs(dx) <= el.width / 2 && Math.abs(dy) <= el.height / 2) return el;
+  }
+  return undefined;
 }
 
 /** A slight tilt of up to ±2.5°, the same for a reference every time, so the board looks pinned up by hand. */

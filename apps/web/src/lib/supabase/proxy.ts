@@ -30,5 +30,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Signed in: the main page is the board. Redirecting here beats the page's own redirect,
+  // which only arrives after the prerendered landing shell has streamed.
+  if (signedIn && pathname === "/" && !request.nextUrl.searchParams.has("code")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/board";
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie); // keep a refreshed session
+    return redirect;
+  }
+
   return response;
 }

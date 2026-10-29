@@ -62,5 +62,6 @@ export async function PUT(request: Request, { params }: RouteContext<"/api/board
 
 function failed(message: string) {
   console.error("Canvas save failed:", message);
-  return NextResponse.json({ error: message }, { status: 500 });
+  // The database's own message stays in the log: it describes our schema, not the user's mistake.
+  return NextResponse.json({ error: "Couldn't save the board" }, { status: 500 });
 }

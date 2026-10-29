@@ -206,7 +206,9 @@ def failure_reason(errors: list[str]) -> str:
 
 def load_board(db: Supabase, user_id: str, board_id: str, cluster_ids: list[str], scope: str | None = None) -> Board:
     board = db.select("boards", {"id": f"eq.{board_id}", "user_id": f"eq.{user_id}", "select": "id,name"})[0]
-    clusters = db.select("clusters", {"board_id": f"eq.{board_id}", "select": "id,name,summary,status,source,cluster_members(reference_id,score)"})
+    # The secret key skips RLS: every read is limited to the job's user as well as the board.
+    mine = {"user_id": f"eq.{user_id}"}
+    clusters = db.select("clusters", {"board_id": f"eq.{board_id}", **mine, "select": "id,name,summary,status,source,cluster_members(reference_id,score)"})
     focus = None
     if scope:
         own = next((c for c in clusters if c["id"] == scope), None)
@@ -222,12 +224,12 @@ def load_board(db: Supabase, user_id: str, board_id: str, cluster_ids: list[str]
                  [c for c in clusters if c["status"] == "suggested"]
     groups = [(c["name"], [m["reference_id"] for m in sorted(c["cluster_members"], key=lambda m: -m["score"])]) for c in chosen]
 
-    on_board = [i["reference_id"] for i in db.select("board_items", {"board_id": f"eq.{board_id}", "select": "reference_id"})]
+    on_board = [i["reference_id"] for i in db.select("board_items", {"board_id": f"eq.{board_id}", **mine, "select": "reference_id"})]
     ids = sorted({r for _, members in groups for r in members}) if cluster_ids else on_board
     if not groups:
         groups = [("Whole board", ids)]
-    refs = {r["id"]: r for r in db.select("references", {"id": in_list(ids), "select": "id,type,title,source_url,page_url,thumbnail_path,file_path,note,labels"})} if ids else {}
-    analyses = {a["reference_id"]: a for a in db.select("analyses", {"reference_id": in_list(ids), "select": "*"})} if ids else {}
+    refs = {r["id"]: r for r in db.select("references", {"id": in_list(ids), **mine, "select": "id,type,title,source_url,page_url,thumbnail_path,file_path,note,labels"})} if ids else {}
+    analyses = {a["reference_id"]: a for a in db.select("analyses", {"reference_id": in_list(ids), **mine, "select": "*"})} if ids else {}
     groups = [(name, [m for m in members if m in refs]) for name, members in groups]
     return Board(id=board_id, name=board["name"], refs=refs, analyses=analyses, short=short_ids(list(refs)), groups=groups, focus=focus)
 
@@ -501,6 +503,15 @@ def replace_section(markdown: str, title: str, body: str) -> str:
     return _join(preamble, [(t, f"\n\n{body.strip()}\n" if t == title else b) for t, b in parts])
 
 
+def md_url(url: str | None) -> str:
+    """A link target safe to put in markdown: http(s) only, in <angle brackets> when it has spaces
+    or parentheses (which would end a bare link early); "" for anything else."""
+    url = (url or "").strip()
+    if not re.match(r"https?://", url, re.I) or re.search(r"[<>\x00-\x1f\x7f]", url):
+        return ""
+    return f"<{url}>" if re.search(r"[ ()]", url) else url
+
+
 def key_references(board: Board) -> str:
     """The references the document is built from, best first, each with its image: the public file
     when it has one (a saved image's own URL), else `ref:<id>`, which the JUSTCREATE preview shows
@@ -512,14 +523,14 @@ def key_references(board: Board) -> str:
         s = board.short[ref_id]
         title = re.sub(r"[\[\]|]", "", (r.get("title") or "untitled").strip())[:80]
         caption = re.sub(r"[\[\]]", "", (a.get("caption") or "").strip())
-        src = r.get("source_url") or ""
+        src = md_url(r.get("source_url"))
         public = r["type"] == "image" and PUBLIC_IMAGE.search(src)
         stored = stored or not public
         styles = [x.get("name") for x in (a.get("inferred") or {}).get("styles") or [] if isinstance(x, dict)]
         palette = " ".join(f"`{h}`" for h in (a.get("palette") or [])[:6])
         facts = " · ".join(f for f in [f"**Style:** {', '.join(styles)}" if styles else "",
                                          f"**Palette:** {palette}" if palette else ""] if f)
-        link = r.get("page_url") or r.get("source_url")
+        link = md_url(r.get("page_url")) or md_url(r.get("source_url"))
         lines = [f"### {s} · {title}", "", f"![{caption[:120] or title}]({src if public else f'ref:{s}'})", ""]
         lines += [f"- {facts}"] if facts else []
         lines += [f"- {caption}"] if caption else []
@@ -544,8 +555,8 @@ def with_reference_map(markdown: str, board: Board) -> str:
     rows = []
     for ref_id, r in board.refs.items():
         s = board.short[ref_id]
-        link = r.get("source_url") or r.get("page_url")
-        title = (r.get("title") or "untitled").replace("|", "/")[:80]
+        link = md_url(r.get("source_url")) or md_url(r.get("page_url"))
+        title = re.sub(r"[\[\]]", "", (r.get("title") or "untitled")).replace("|", "/")[:80]
         where = ", ".join(f"§{n}" for n in sorted(set(cited_in.get(s, [])))) or "—"
         rows.append(f"| {s} | {title} | {r['type']} | {where} | {f'[source]({link})' if link else '—'} |")
     table = "\n\n| Ref | Title | Type | Cited in | Source |\n|---|---|---|---|---|\n" + "\n".join(rows) + "\n"

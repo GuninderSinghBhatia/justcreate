@@ -1,6 +1,6 @@
 from worker.spec import (
     CITE, KEY_REFS, REF_MAP, SECTIONS, Board, aggregate, assemble, clean_body, draft_sections, replace_section,
-    short_ids, split_sections, with_reference_map,
+    md_url, short_ids, split_sections, with_reference_map,
 )
 
 A = "aaaaaa11-0000-0000-0000-000000000001"
@@ -158,3 +158,12 @@ def test_a_cluster_design_md_is_titled_and_scoped_to_its_style():
     assert md.startswith("# design.md — Neo-Brutalism")
     assert "“Neo-Brutalism” cluster on board “Test”" in md
     assert "ONE style family only: “Neo-Brutalism” — thick black outlines" in b.focus_line()
+
+
+def test_md_url_keeps_only_web_links_and_brackets_awkward_ones():
+    assert md_url("https://ex.com/a.png") == "https://ex.com/a.png"
+    assert md_url("https://ex.com/a (1).png") == "<https://ex.com/a (1).png>"
+    assert md_url("javascript:alert(1)") == ""
+    assert md_url("https://ex.com/a>b") == ""
+    assert md_url("https://ex.com/a\nb") == ""
+    assert md_url(None) == ""

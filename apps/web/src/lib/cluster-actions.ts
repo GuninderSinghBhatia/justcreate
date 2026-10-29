@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionUser } from "@/lib/supabase/server";
 import { enqueueJob } from "@/lib/jobs";
-import { must, requireUser } from "@/lib/require-user";
+import { must, ownBoard, requireUser, userFacing } from "@/lib/require-user";
 
 /**
  * User control over clusters. The worker only ever replaces *suggested* AI clusters on a re-run:
@@ -88,9 +88,12 @@ export async function createManualCluster(boardId: string, name: string, referen
   revalidatePath("/board");
 }
 
-/** "Re-cluster" button: queue a clustering run for the board. */
+/** "Re-cluster" button: queue a clustering run for the board (jobs skip RLS, so ownership is checked first). */
 export async function reclusterBoard(boardId: string) {
-  const { user } = await requireUser();
-  await enqueueJob(user.id, "cluster", { boardId });
-  revalidatePath("/board");
+  return userFacing(async () => {
+    const { supabase, user } = await requireUser();
+    await ownBoard(supabase, boardId);
+    await enqueueJob(user.id, "cluster", { boardId });
+    revalidatePath("/board");
+  });
 }

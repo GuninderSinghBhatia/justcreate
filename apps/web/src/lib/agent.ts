@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { allow, clientIp } from "@/lib/rate-limit";
 import { bearerToken, createAdminClient } from "@/lib/supabase/server";
 
 /**
@@ -29,6 +30,10 @@ export interface AgentContext {
 
 /** Resolves the bearer token to its owner, or returns a 401 response. */
 export async function agentAuth(request: Request): Promise<AgentContext | NextResponse> {
+  // Per address, before the token is looked at: also slows down guessing.
+  if (!allow(`agent:${clientIp(request)}`, 120)) {
+    return NextResponse.json({ error: "Too many requests. Wait a minute." }, { status: 429, headers: { "retry-after": "60" } });
+  }
   const token = bearerToken(request);
   if (!token?.startsWith(TOKEN_PREFIX)) {
     return NextResponse.json({ error: "Missing or malformed API token (create one in JUSTCREATE → Settings)" }, { status: 401 });

@@ -1,6 +1,7 @@
 import { imageUrlCandidates, type CapturePayload } from '@justcreate/shared';
 import { flushQueue, upload, type UploadResult } from '../lib/api';
 import { getSession, setSession } from '../lib/auth';
+import { APP_URL } from '../lib/config';
 import type {
   BackgroundRequest,
   ContentRequest,
@@ -80,7 +81,13 @@ export default defineBackground(() => {
     if (command === 'screenshot-region') void guarded(tab, () => saveScreenshot(tab, 'region'));
   });
 
-  browser.runtime.onMessage.addListener((message: BackgroundRequest, _sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message: BackgroundRequest, sender, sendResponse) => {
+    // A session is only taken from our own content script on the app's /connect page: content
+    // scripts run inside web pages, so any other sender could plant a session of its choosing.
+    if (message.kind === 'connected' && !fromConnectPage(sender)) {
+      sendResponse({ error: 'Not allowed' });
+      return false;
+    }
     handlePopup(message).then(sendResponse, (err) => sendResponse({ error: String(err) }));
     return true;
   });
@@ -90,6 +97,12 @@ export default defineBackground(() => {
     Object.assign(globalThis, { __justcreate: { saveImage, saveDetected, saveScreenshot, retryQueue } });
   }
 });
+
+function fromConnectPage(sender: { id?: string; url?: string }) {
+  if (sender.id !== browser.runtime.id || !sender.url) return false;
+  const url = new URL(sender.url);
+  return url.origin === new URL(APP_URL).origin && url.pathname === '/connect';
+}
 
 async function handlePopup(message: BackgroundRequest): Promise<unknown> {
   switch (message.kind) {

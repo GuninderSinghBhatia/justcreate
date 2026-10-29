@@ -48,12 +48,15 @@ export interface ReferenceEdit {
 
 export async function updateReference(referenceId: string, edit: ReferenceEdit) {
   const { supabase } = await requireUser();
+  // Server Actions can be called with anything: keep only well-formed fields, within limits.
+  const text = (value: unknown, max: number) => (typeof value === "string" ? value.trim().slice(0, max) || null : null);
   const patch: ReferenceEdit = {};
-  if (edit.title !== undefined) patch.title = edit.title?.trim() || null;
-  if (edit.note !== undefined) patch.note = edit.note?.trim() || null;
-  if (edit.description !== undefined) patch.description = edit.description?.trim() || null;
-  if (edit.labels !== undefined) {
-    patch.labels = [...new Set(edit.labels.map((l) => l.trim().toLowerCase()).filter(Boolean))].slice(0, 30);
+  if (edit?.title !== undefined) patch.title = text(edit.title, 500);
+  if (edit?.note !== undefined) patch.note = text(edit.note, 5000);
+  if (edit?.description !== undefined) patch.description = text(edit.description, 5000);
+  if (edit?.labels !== undefined) {
+    const labels = Array.isArray(edit.labels) ? edit.labels.filter((l): l is string => typeof l === "string") : [];
+    patch.labels = [...new Set(labels.map((l) => l.trim().toLowerCase().slice(0, 60)).filter(Boolean))].slice(0, 30);
   }
   const { error } = await supabase.from("references").update(patch).eq("id", referenceId);
   if (error) throw new Error(error.message);

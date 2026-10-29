@@ -17,6 +17,9 @@ export async function GET(request: Request) {
     },
     120,
   );
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("List references failed:", error.message);
+    return NextResponse.json({ error: "Couldn't load references" }, { status: 500 });
+  }
   return NextResponse.json({ references: await toViews(auth.supabase, (data ?? []) as Reference[]) });
 }

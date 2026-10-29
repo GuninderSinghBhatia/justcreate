@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { CapturePayload, CaptureResponse } from "@justcreate/shared";
-import { CaptureError, saveCapture } from "@/lib/capture";
+import { CaptureError, MAX_BYTES, saveCapture } from "@/lib/capture";
+import { allow } from "@/lib/rate-limit";
 import { requestUser } from "@/lib/request-user";
 
 function json(body: CaptureResponse, status = 200) {
@@ -15,6 +16,13 @@ function json(body: CaptureResponse, status = 200) {
 export async function POST(request: Request) {
   const auth = await requestUser(request);
   if (!auth) return json({ error: "Not signed in" }, 401);
+  if (!allow(`captures:${auth.user.id}`, 60)) return json({ error: "Too many captures at once. Wait a minute." }, 429);
+
+  // The body is read into memory below, so its size is checked first: a file and a thumbnail at
+  // most. Browsers and the extension always send a Content-Length for multipart bodies.
+  const length = Number(request.headers.get("content-length"));
+  if (!length) return json({ error: "Content-Length required" }, 411);
+  if (length > 2 * MAX_BYTES + 1024 * 1024) return json({ error: "File larger than 50 MB" }, 413);
 
   const form = await request.formData().catch(() => null);
   if (!form) return json({ error: "Expected multipart/form-data" }, 400);

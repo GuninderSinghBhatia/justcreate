@@ -149,6 +149,8 @@ export function BoardCanvas({
   const lastVersion = useRef<number | null>(null);
   // References this canvas has shown: only these can be removed by deleting their image.
   const seen = useRef(new Set(items.map((i) => i.reference_id)));
+  // References deleted on this canvas: a refresh that raced the save mustn't bring them back.
+  const removedHere = useRef(new Set<string>());
   const save = useCallback(async () => {
     if (!api) return;
     window.clearTimeout(timer.current);
@@ -171,7 +173,11 @@ export function BoardCanvas({
       });
       onSaveState?.(res.ok ? "saved" : "error");
       if (!res.ok) return;
-      seen.current = present;
+      for (const id of present) seen.current.add(id);
+      for (const id of removed) {
+        seen.current.delete(id);
+        removedHere.current.add(id);
+      }
       // Images added/removed change board membership: refresh counts, sidebar and clusters.
       const result = (await res.json()) as { added?: number; removed?: number };
       if (result.added || result.removed) onMembershipChange?.();
@@ -221,11 +227,14 @@ export function BoardCanvas({
     const known = new Set(knownItems.current.map((i) => i.reference_id));
     const current = new Set(items.map((i) => i.reference_id));
     knownItems.current = items;
-    for (const id of current) seen.current.add(id);
 
     const all = api.getSceneElementsIncludingDeleted();
     const onCanvas = new Set(all.map(referenceIdOf));
-    const missing = items.filter((i) => !onCanvas.has(i.reference_id));
+    // New items only: one this canvas has seen but no longer shows was deleted here (save pending).
+    const missing = items.filter(
+      (i) => !onCanvas.has(i.reference_id) && !seen.current.has(i.reference_id) && !removedHere.current.has(i.reference_id),
+    );
+    for (const id of current) seen.current.add(id);
     // Remove images only for items that existed before and were removed elsewhere.
     const gone = new Set(
       all.filter((el) => {
@@ -247,6 +256,7 @@ export function BoardCanvas({
   const place = useCallback(
     (ed: ExcalidrawImperativeAPI, reference: ReferenceView, x: number, y: number) => {
       extra.current.set(reference.id, reference);
+      removedHere.current.delete(reference.id); // put back on purpose
       const existing = ed.getSceneElements().find((el) => referenceIdOf(el) === reference.id);
       let id = existing?.id;
       if (!existing) {

@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import type { Board, BoardItem, Cluster, ClusterMember, Reference } from "@justcreate/shared";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { SiteHeader } from "@/components/site-header";
 import { homeBoard } from "@/lib/boards";
 import { toViews } from "@/lib/references";
@@ -40,6 +41,8 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
   return (
     <div className="flex h-dvh flex-col">
       <SiteHeader email={user.email} />
+      {/* New captures from the extension appear without a reload. */}
+      <AutoRefresh />
       <BoardWorkspace
         board={board as Board}
         items={placed.map((i) => ({ board_id: i.board_id, reference_id: i.reference_id, x: i.x, y: i.y, w: i.w, h: i.h, z: i.z }))}

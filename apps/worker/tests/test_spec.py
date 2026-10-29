@@ -1,5 +1,5 @@
 from worker.spec import (
-    CITE, REF_MAP, SECTIONS, Board, aggregate, assemble, clean_body, draft_sections, replace_section,
+    CITE, KEY_REFS, REF_MAP, SECTIONS, Board, aggregate, assemble, clean_body, draft_sections, replace_section,
     short_ids, split_sections, with_reference_map,
 )
 
@@ -86,11 +86,11 @@ def test_assemble_has_fixed_section_order_and_reference_map():
     b = board()
     md = with_reference_map(assemble(b, {k: f"Body {k} [ref:{b.short[A]}]" for k, _, _ in SECTIONS}), b)
     _, parts = split_sections(md)
-    assert [t for t, _ in parts] == [t for _, t, _ in SECTIONS] + [REF_MAP]
+    assert [t for t, _ in parts] == [t for _, t, _ in SECTIONS] + [KEY_REFS, REF_MAP]
     ref_map = parts[-1][1]
     assert "§1, §2" in ref_map  # A cited in every section
     assert "Pastel / site" in ref_map  # pipes escaped in titles
-    assert md.count(f"## {len(SECTIONS) + 1}. Reference map") == 1
+    assert md.count(f"## {len(SECTIONS) + 2}. Reference map") == 1
 
 
 def test_replace_section_keeps_user_edits_elsewhere():
@@ -132,3 +132,29 @@ def test_failure_reason_reads_quota_errors():
     assert "daily limit" in failure_reason(["Error code: 429 - Rate limit reached ... tokens per day (TPD): Limit 200000"])
     assert "too large" in failure_reason(["Error code: 413 - Request too large for model"])
     assert "rate-limiting" in failure_reason(["Error code: 429 - Rate limit reached on tokens per minute"])
+
+
+def test_key_references_embed_public_images_and_point_to_stored_ones():
+    from worker.spec import key_references
+
+    b = board()
+    b.refs[A]["type"], b.refs[A]["source_url"] = "image", "https://i.pinimg.com/originals/aa/bb/cc/x.jpg"
+    b.analyses[A] = {**b.analyses.get(A, {}), "caption": "Neon dashboard", "palette": ["#0f0f1a"],
+                     "inferred": {"styles": [{"key": "cyberpunk", "name": "Cyberpunk / Neon", "score": 0.5}]}}
+    section = key_references(b)
+    assert "![Neon dashboard](https://i.pinimg.com/originals/aa/bb/cc/x.jpg)" in section
+    assert "**Style:** Cyberpunk / Neon" in section and "`#0f0f1a`" in section
+    others = [r for r in b.refs if r != A]
+    assert all(f"(ref:{b.short[r]})" in section for r in others)  # no public file: the stored image's id
+    assert "get_references" in section
+
+
+def test_a_cluster_design_md_is_titled_and_scoped_to_its_style():
+    from worker.spec import Focus
+
+    b = board()
+    b.focus = Focus(cluster_id="c1", name="Neo-Brutalism", look="thick black outlines, hard offset drop shadows")
+    md = assemble(b, {k: "x" for k, _, _ in SECTIONS})
+    assert md.startswith("# design.md — Neo-Brutalism")
+    assert "“Neo-Brutalism” cluster on board “Test”" in md
+    assert "ONE style family only: “Neo-Brutalism” — thick black outlines" in b.focus_line()

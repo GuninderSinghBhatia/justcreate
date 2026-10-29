@@ -21,9 +21,10 @@ import { uploadImages } from "@/lib/upload";
 import { createDecor, DecorOver, DecorUnder } from "./decor";
 import { REFERENCE_DRAG_TYPE } from "./drag";
 import { Lightbox, type Zoomed } from "./lightbox";
-import { ToolStrip, type ActiveTool } from "./tool-strip";
+import { PAPERS, ToolStrip, type ActiveTool, type Paper } from "./tool-strip";
 
 const SAVE_DELAY_MS = 800;
+const PAPER_KEY = "justcreate:canvas-paper";
 
 export interface CanvasHandle {
   /** Selects the images for these references and zooms to them. */
@@ -74,6 +75,23 @@ export function BoardCanvas({
   const container = useRef<HTMLDivElement>(null);
   const [decor] = useState(createDecor);
   const [tool, setTool] = useState<ActiveTool>({ type: "selection", locked: false });
+  // Canvas colour: a per-browser preference (the page renders fine without storage).
+  const [paper, setPaper] = useState<Paper>(() => {
+    try {
+      const saved = localStorage.getItem(PAPER_KEY);
+      return PAPERS.some((p) => p.key === saved) ? (saved as Paper) : "sage";
+    } catch {
+      return "sage";
+    }
+  });
+  const choosePaper = useCallback((next: Paper) => {
+    setPaper(next);
+    try {
+      localStorage.setItem(PAPER_KEY, next);
+    } catch {
+      // private mode / blocked storage: the choice lasts for this visit
+    }
+  }, []);
   const theme = useSyncExternalStore(subscribeScheme, () => (darkQuery()?.matches ? THEME.DARK : THEME.LIGHT), () => THEME.LIGHT);
 
   // References added on the canvas (sidebar drops, uploads) before the page data refreshes.
@@ -381,6 +399,7 @@ export function BoardCanvas({
     <div
       ref={container}
       className="board-canvas animate-fade relative isolate h-full w-full"
+      data-paper={paper}
       onDragOverCapture={(e) => {
         if (e.dataTransfer.types.includes(REFERENCE_DRAG_TYPE)) e.preventDefault();
       }}
@@ -388,7 +407,7 @@ export function BoardCanvas({
       onDoubleClickCapture={onDoubleClick}
     >
       <DecorUnder decor={decor} />
-      <ToolStrip api={api} active={tool} />
+      <ToolStrip api={api} active={tool} paper={paper} onPaper={choosePaper} />
       <Excalidraw
         excalidrawAPI={setApi}
         initialData={initialData}

@@ -7,6 +7,7 @@ import type { Board, BoardItem } from "@justcreate/shared";
 import type { CanvasHandle } from "@/components/canvas/board-canvas";
 import { LibrarySidebar } from "@/components/canvas/library-sidebar";
 import { ClusterPanel, type ClusterWithMembers } from "@/components/cluster-panel";
+import { ClusterGallery, type Gallery } from "@/components/cluster-gallery";
 import { ReferenceDrawer } from "@/components/reference-drawer";
 import { ReferenceGrid } from "@/components/reference-grid";
 import { SiteHeader } from "@/components/site-header";
@@ -63,6 +64,14 @@ export function BoardWorkspace({
     if (canvas.current) canvas.current.focus(ids);
     else setSelection(ids);
   }, []);
+
+  // A cluster's or style's references as a grid over the board.
+  const [gallery, setGallery] = useState<Gallery | null>(null);
+  const openGallery = useCallback((g: Gallery) => {
+    canvas.current?.focus([]); // its drawer would sit beside the gallery
+    setGallery(g);
+  }, []);
+  const closeGallery = useCallback(() => setGallery(null), []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -136,8 +145,24 @@ export function BoardWorkspace({
               />
             </div>
           )}
+          {gallery && (
+            <ClusterGallery
+              key={gallery.title}
+              gallery={gallery}
+              references={byId}
+              onClose={closeGallery}
+              onShowOnCanvas={
+                view === "canvas"
+                  ? () => {
+                      setGallery(null);
+                      focus(gallery.ids);
+                    }
+                  : undefined
+              }
+            />
+          )}
         </main>
-        {view === "canvas" && selected && (
+        {view === "canvas" && selected && !gallery && (
           // Slides in when a selection starts, not again as it moves between images.
           <div className="animate-panel-right flex">
             <ReferenceDrawer
@@ -157,6 +182,7 @@ export function BoardWorkspace({
             selection={selection}
             clustering={clustering}
             onFocus={focus}
+            onOpen={openGallery}
           />
         )}
       </div>

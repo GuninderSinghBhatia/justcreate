@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Nunito } from "next/font/google";
-import localFont from "next/font/local";
+import { Geist_Mono, Kalam, Nunito } from "next/font/google";
 import "./globals.css";
 
-// Virgil, Excalidraw's original hand-drawn face (OFL-1.1, see fonts/OFL.txt), for headings and UI labels.
-const virgil = localFont({
-  src: "./fonts/Virgil-Regular.woff2",
-  variable: "--font-virgil",
-  display: "swap",
+// Kalam, a felt-tip handwriting (OFL-1.1), for headings and UI labels: notes pinned to a moodboard.
+const kalam = Kalam({
+  variable: "--font-kalam",
+  weight: ["400", "700"],
+  subsets: ["latin"],
 });
 
-// Excalidraw pairs its handwriting with Nunito; it carries long text so it stays readable.
+// Nunito carries long text so it stays readable.
 const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin"],
@@ -30,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${virgil.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${kalam.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

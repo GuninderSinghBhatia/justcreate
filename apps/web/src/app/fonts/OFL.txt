@@ -1,3 +1,0 @@
-Virgil-Regular.woff2 — Virgil, the original Excalidraw hand-drawn font (https://github.com/excalidraw/virgil).
-Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org);
-the full license text is embedded in the font file. As shipped in @excalidraw/excalidraw 0.18.1.

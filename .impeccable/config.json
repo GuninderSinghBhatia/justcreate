@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/app/globals.css"
+        ],
+        "createdAt": "2026-10-29T02:12:58.059Z",
+        "reason": "Claude triage: flagged rule is the 2px neutral left rule on blockquote in the design.md markdown preview (standard quote styling), not an accent border on a card"
+      }
+    ]
+  }
+}

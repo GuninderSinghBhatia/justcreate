@@ -56,7 +56,7 @@ export default async function SpecPage({ searchParams }: PageProps<"/board/spec"
   const job = jobs?.[0];
   return (
     <div className="flex h-dvh flex-col">
-      <SiteHeader email={user.email} />
+      <SiteHeader />
       <div className="flex items-center gap-3 border-b border-foreground/10 px-4 py-2 text-sm">
         <Link href="/board" className="text-foreground/60 hover:underline">
           ← {board.name}

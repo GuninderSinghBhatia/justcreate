@@ -40,7 +40,7 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
 
   return (
     <div className="flex h-dvh flex-col">
-      <SiteHeader email={user.email} />
+      <SiteHeader />
       {/* New captures from the extension appear without a reload. */}
       <AutoRefresh />
       <BoardWorkspace

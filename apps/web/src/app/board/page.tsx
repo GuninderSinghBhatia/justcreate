@@ -1,7 +1,6 @@
 import { connection } from "next/server";
 import type { Board, BoardItem, Cluster, ClusterMember } from "@justcreate/shared";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { SiteHeader } from "@/components/site-header";
 import { homeBoard } from "@/lib/boards";
 import { ANALYSIS_EMBED, toViews, type ReferenceRow } from "@/lib/references";
 import { requireUser } from "@/lib/require-user";
@@ -27,15 +26,16 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
   const { supabase, user } = await requireUser();
 
   // The oldest board is the board (see homeBoard). Open clustering jobs load alongside it.
-  const load = () =>
-    supabase
-      .from("boards")
-      .select(BOARD_SELECT)
-      .eq("user_id", user.id)
+  const load = (id?: string) => {
+    let query = supabase.from("boards").select(BOARD_SELECT).eq("user_id", user.id);
+    // By id after creating it: the same request again would be served the memoized empty answer.
+    if (id) query = query.eq("id", id);
+    return query
       .order("created_at")
       .order("created_at", { referencedTable: "clusters" })
       .limit(1)
       .maybeSingle<BoardRow>();
+  };
   const [first, { data: jobs }] = await Promise.all([
     load(),
     supabase
@@ -48,8 +48,10 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
   if (first.error) throw new Error(first.error.message);
   let board = first.data;
   if (!board) {
-    await homeBoard(supabase, user.id); // first visit: create it
-    board = (await load()).data!;
+    const created = await homeBoard(supabase, user.id); // first visit: create it
+    const again = await load(created.id);
+    if (!again.data) throw new Error(`Couldn't open your board: ${again.error?.message ?? "not found after creating it"}`);
+    board = again.data;
   }
 
   const references = await toViews(
@@ -59,7 +61,6 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
 
   return (
     <div className="flex h-dvh flex-col">
-      <SiteHeader />
       {/* New captures from the extension appear without a reload. */}
       <AutoRefresh />
       <BoardWorkspace

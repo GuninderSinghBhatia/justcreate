@@ -49,14 +49,17 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Handwriting for headings and UI labels; long text and form input stay in Nunito.
-   In the base layer so utilities (font-sans on a card) can still override it. */
+/* The app speaks Nunito everywhere (bar, panels, settings, design.md). Handwriting is the
+   landing page's voice: inside `.handwritten`, and wherever `.font-hand` asks for it.
+   In the base layer so utilities (font-sans, font-semibold) can still override it. */
 @layer base {
   /* Not inside the Excalidraw canvas: it brings its own UI type. */
-  :is(h1, h2, h3, h4, button, summary, nav, th, label, select, [role="tab"], .font-hand):not(.excalidraw *) {
+  :is(h1, h2, h3, h4):not(.excalidraw *) { font-weight: 700; letter-spacing: -0.01em; }
+  :is(.handwritten :is(h1, h2, h3, h4, button, summary, th, label, [role="tab"]), .font-hand):not(.excalidraw *) {
     font-family: var(--font-hand);
     font-size-adjust: 0.5; /* match Nunito's apparent size */
     font-synthesis: none; /* real 400 and 700 only: never a faked weight */
+    letter-spacing: normal;
   }
   input, textarea { font-family: var(--font-sans); font-size-adjust: none; }
   pre, code { font-family: var(--font-mono); font-size-adjust: none; }

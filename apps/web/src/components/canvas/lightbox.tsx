@@ -110,7 +110,7 @@ export function Lightbox({ image, onClose }: { image: Zoomed; onClose: () => voi
       <div ref={bar} className="relative flex items-center gap-4 px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
         <p className="min-w-0 flex-1 truncate text-white/80">{image.title}</p>
         {image.sourceUrl && (
-          <a href={image.sourceUrl} target="_blank" rel="noreferrer" className="font-hand text-white/70 hover:text-white hover:underline">
+          <a href={image.sourceUrl} target="_blank" rel="noreferrer" className="text-white/70 hover:text-white hover:underline">
             Open source
           </a>
         )}

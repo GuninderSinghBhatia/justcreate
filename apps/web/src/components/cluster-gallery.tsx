@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ReferenceView } from "@/lib/references";
 import { BarButton, BarIcon, BarLink } from "./bar";
+import { Lightbox } from "./canvas/lightbox";
 import { ReferenceGrid } from "./reference-grid";
 
 export interface Gallery {
@@ -30,6 +31,10 @@ export function ClusterGallery({
   onShowOnCanvas?: () => void;
 }) {
   const items = gallery.ids.flatMap((id) => references.get(id) ?? []);
+  // A card opens full screen, centred, to step through the cluster: a side drawer would cover the grid.
+  const [viewing, setViewing] = useState<number | null>(null);
+  const shown = viewing === null ? null : items[viewing];
+  const step = (by: number) => setViewing((i) => (i === null ? i : (i + by + items.length) % items.length));
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => {
@@ -74,10 +79,23 @@ export function ClusterGallery({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <ReferenceGrid
           references={items}
+          onOpen={(r) => setViewing(items.findIndex((x) => x.id === r.id))}
           onBoard
           empty={<p className="py-24 text-center text-sm text-foreground/50">These references are no longer on the board.</p>}
         />
       </div>
+      {shown && (
+        <Lightbox
+          image={{
+            src: shown.fileUrl ?? shown.imageUrl ?? "",
+            fallback: shown.imageUrl,
+            title: shown.title,
+            sourceUrl: shown.page_url ?? shown.source_url,
+          }}
+          onClose={() => setViewing(null)}
+          nav={{ index: viewing!, count: items.length, onPrev: () => step(-1), onNext: () => step(1) }}
+        />
+      )}
     </section>
   );
 }

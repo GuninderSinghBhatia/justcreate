@@ -8,7 +8,12 @@ export type UploadResult =
   | { status: 'queued'; reason: string }
   | { status: 'failed'; reason: string };
 
-class RetryableError extends Error {}
+class RetryableError extends Error {
+  /** True when every queued capture would fail the same way (offline, signed out, rate limited). */
+  constructor(message: string, readonly stopsQueue = true) {
+    super(message);
+  }
+}
 
 async function post(payload: CapturePayload, file?: Blob, thumbnail?: Blob): Promise<void> {
   const token = await getAccessToken().catch(() => {
@@ -35,8 +40,10 @@ async function post(payload: CapturePayload, file?: Blob, thumbnail?: Blob): Pro
 
   const body = (await res.json().catch(() => ({}))) as CaptureResponse;
   const reason = body.error ?? `Server error ${res.status}`;
-  // Auth and server errors may clear up; a bad request will not.
-  if (res.status === 401 || res.status >= 500) throw new RetryableError(reason);
+  // Auth, rate limit and server errors may clear up; a bad request will not. A server error may be
+  // about this one capture, so the queue moves on to the next.
+  if (res.status === 401 || res.status === 429) throw new RetryableError(reason);
+  if (res.status >= 500) throw new RetryableError(reason, false);
   throw new Error(reason);
 }
 
@@ -69,7 +76,7 @@ export async function flushQueue(): Promise<number> {
         continue;
       }
       await enqueue({ ...item, attempts: item.attempts + 1 });
-      break; // still offline / unauthorized: don't hammer the rest
+      if (err.stopsQueue) break; // still offline / unauthorized: don't hammer the rest
     }
   }
   return saved;

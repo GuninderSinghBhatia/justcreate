@@ -245,9 +245,9 @@ class Worker:
         if not ids_on_board:
             return
         self._wait_for_analyses(board_id, ids_on_board)
-        emb = self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "select": "reference_id,image_embedding,text_embedding"})
+        emb = self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "user_id": f"eq.{user_id}", "select": "reference_id,image_embedding,text_embedding"})
         ana = {a["reference_id"]: a for a in self.db.select("analyses", {
-            "reference_id": in_list(ids_on_board),
+            "reference_id": in_list(ids_on_board), "user_id": f"eq.{user_id}",
             "select": "reference_id,tags,mood,components,effects,caption,model_version,inferred,picked:raw->design_styles"})}
 
         ids, images, texts = [], [], []

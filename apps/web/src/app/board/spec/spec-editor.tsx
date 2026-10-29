@@ -88,6 +88,8 @@ export function SpecEditor({
   const dirty = text !== saved;
   const isLatest = !version || version.version === versions[0]?.version;
   const preview = useMemo(() => withSwatches(linkCitations(text, refs)), [text, refs]);
+  // Images the page may load: this board's references (their thumbnails and public sources).
+  const knownImages = useMemo(() => new Set(Object.values(refs).flatMap((r) => [r.thumb, r.url]).filter(Boolean)), [refs]);
   const headings = useMemo(() => specHeadings(text), [text]);
   const canRewrite = !pending && !running && !dirty && isLatest && versions.length > 0;
   const rewriteBlocked = dirty
@@ -102,7 +104,9 @@ export function SpecEditor({
     start(async () => {
       try {
         setMessage(null);
-        await fn();
+        const result = await fn();
+        // Actions return { error } for messages the user should see (production hides thrown ones).
+        if (result && typeof result === "object" && "error" in result) throw new Error(String(result.error));
         setMessage(done);
         router.refresh();
       } catch (err) {
@@ -171,11 +175,17 @@ export function SpecEditor({
       return <code className={className}>{children}</code>;
     },
     // Key reference images: public files as they are, stored ones (`ref:<id>`) from their thumbnail.
+    // Any other address (pasted in, or slipped into AI output) isn't loaded: it would tell its
+    // server who opened the page and when.
     img: ({ src, alt }) =>
-      typeof src === "string" && src ? (
+      typeof src !== "string" || !src ? null : knownImages.has(src) ? (
         // eslint-disable-next-line @next/next/no-img-element -- remote and signed storage URLs
         <img src={src} alt={alt ?? ""} loading="lazy" className="spec-figure" />
-      ) : null,
+      ) : (
+        <a href={src} target="_blank" rel="noreferrer" className="text-foreground/60 underline">
+          [Image not loaded: {alt || "outside image"}]
+        </a>
+      ),
   };
   const urlTransform = (url: string) => (url.startsWith("ref:") ? (refs[url.slice(4)]?.thumb ?? "") : defaultUrlTransform(url));
 

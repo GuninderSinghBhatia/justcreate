@@ -11,6 +11,7 @@ import {
 } from "@justcreate/shared";
 import { enqueueJob } from "@/lib/jobs";
 import { addToBoard, homeBoard } from "@/lib/boards";
+import { fetchPublic, sniffImage } from "@/lib/safe-fetch";
 
 export const MAX_BYTES = 50 * 1024 * 1024;
 
@@ -20,7 +21,6 @@ const EXTENSIONS: Record<string, string> = {
   "image/webp": "webp",
   "image/gif": "gif",
   "image/avif": "avif",
-  "image/svg+xml": "svg",
 };
 
 export class CaptureError extends Error {
@@ -45,11 +45,13 @@ export async function saveCapture(
 ): Promise<Reference> {
   if (!REFERENCE_TYPES.includes(payload.type)) throw new CaptureError("Unknown type", 400);
 
-  let file = files.file ?? null;
-  if (!file && payload.remoteFileUrl) file = await download(payload.remoteFileUrl);
-  for (const f of [file, files.thumbnail]) {
+  for (const f of [files.file, files.thumbnail]) {
     if (f && f.size > MAX_BYTES) throw new CaptureError("File larger than 50 MB", 413);
   }
+  // Stored files are only ever raster images, typed by their bytes: never what the client claims.
+  let file = files.file ? await asImage(files.file) : null;
+  if (!file && payload.remoteFileUrl) file = await download(payload.remoteFileUrl);
+  const thumbnail = files.thumbnail ? await asImage(files.thumbnail) : null;
 
   let metadata: CaptureMetadata = payload.metadata ?? {};
   if (payload.type === "tweet" && !metadata.text && payload.sourceUrl) {
@@ -58,36 +60,40 @@ export async function saveCapture(
 
   const uploaded: string[] = [];
   const put = async (blob: Blob | null | undefined) => {
-    if (!blob || blob.size === 0) return null;
-    const path = `${userId}/${crypto.randomUUID()}.${EXTENSIONS[blob.type] ?? "bin"}`;
-    const { error } = await supabase.storage
-      .from(CAPTURES_BUCKET)
-      .upload(path, blob, { contentType: blob.type || "application/octet-stream" });
-    if (error) throw new CaptureError(`Upload failed: ${error.message}`, 500);
+    if (!blob) return null;
+    const path = `${userId}/${crypto.randomUUID()}.${EXTENSIONS[blob.type]}`;
+    const { error } = await supabase.storage.from(CAPTURES_BUCKET).upload(path, blob, { contentType: blob.type });
+    if (error) {
+      console.error("capture upload:", error.message);
+      throw new CaptureError("Upload failed. Try again.", 500);
+    }
     uploaded.push(path);
     return path;
   };
 
   try {
     const filePath = await put(file);
-    const thumbnailPath = (await put(files.thumbnail)) ?? filePath;
+    const thumbnailPath = (await put(thumbnail)) ?? filePath;
 
     const { data, error } = await supabase
       .from("references")
       .insert({
         user_id: userId,
         type: payload.type,
-        source_url: payload.sourceUrl ?? null,
-        page_url: payload.pageUrl ?? null,
+        source_url: webUrl(payload.sourceUrl),
+        page_url: webUrl(payload.pageUrl),
         title: (payload.title ?? (metadata.text as string | undefined))?.slice(0, 500) ?? null,
-        note: payload.note ?? null,
+        note: payload.note?.slice(0, 5000) ?? null,
         file_path: filePath,
         thumbnail_path: thumbnailPath,
         metadata,
       })
       .select()
       .single();
-    if (error) throw new CaptureError(`Save failed: ${error.message}`, 500);
+    if (error) {
+      console.error("capture save:", error.message);
+      throw new CaptureError("Save failed. Try again.", 500);
+    }
     const reference = data as Reference;
 
     // One board per user: every capture lands on it (older extensions still send a boardId).
@@ -102,19 +108,39 @@ export async function saveCapture(
   }
 }
 
-/** Fallback when the extension couldn't read the file itself (e.g. CORS-locked images). */
-/** Downloads the best copy of a remote image: the original behind a CDN resize when there is one. */
+/** Only http(s) links are kept: they end up as clickable links in the app and in design.md. */
+function webUrl(url: string | null | undefined) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The file as a typed image Blob, or a 415 when its bytes aren't JPEG, PNG, GIF, WebP or AVIF. */
+async function asImage(blob: Blob): Promise<Blob> {
+  if (blob.size === 0) throw new CaptureError("The file is empty", 400);
+  const type = sniffImage(new Uint8Array(await blob.slice(0, 16).arrayBuffer()));
+  if (!type) throw new CaptureError("Only JPEG, PNG, GIF, WebP or AVIF images can be saved", 415);
+  return blob.type === type ? blob : new Blob([blob], { type });
+}
+
+/**
+ * Fallback when the extension couldn't read the file itself (e.g. CORS-locked images): downloads
+ * the best copy of a remote image, the original behind a CDN resize when there is one. Only public
+ * addresses are fetched (see safe-fetch).
+ */
 async function download(url: string): Promise<Blob | null> {
   for (const candidate of imageUrlCandidates(url)) {
     try {
-      const parsed = new URL(candidate);
-      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
-      const res = await fetch(parsed, { signal: AbortSignal.timeout(15_000) });
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      if (blob.type.startsWith("image/") && blob.size <= MAX_BYTES) return blob;
+      const res = await fetchPublic(candidate, { maxBytes: MAX_BYTES });
+      if (res.status < 200 || res.status >= 300) continue;
+      const type = sniffImage(res.body.subarray(0, 16));
+      if (type) return new Blob([new Uint8Array(res.body)], { type });
     } catch {
-      // try the next copy
+      // blocked, too large or unreachable: try the next copy
     }
   }
   return null;

@@ -51,7 +51,9 @@ export function ClusterPanel({
     start(async () => {
       try {
         setError(null);
-        await fn();
+        const result = await fn();
+        // Actions return { error } for messages the user should see (production hides thrown ones).
+        if (result && typeof result === "object" && "error" in result) throw new Error(String(result.error));
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");

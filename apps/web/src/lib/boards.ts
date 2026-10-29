@@ -11,21 +11,21 @@ const GAP = 24;
  * Returns the oldest board (older accounts may have more), creating it on first use.
  */
 export async function homeBoard(supabase: SupabaseClient, userId: string): Promise<{ id: string; name: string }> {
-  const { data } = await supabase
-    .from("boards")
-    .select("id, name")
-    .eq("user_id", userId)
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
+  const find = () => supabase.from("boards").select("id, name").eq("user_id", userId).order("created_at").limit(1).maybeSingle();
+  const { data } = await find();
   if (data) return data;
   const { data: created, error } = await supabase
     .from("boards")
     .insert({ user_id: userId, name: "My board" })
     .select("id, name")
     .single();
-  if (error) throw new Error(`Couldn't create your board: ${error.message}`);
-  return created;
+  if (!error) return created;
+  // 23505: a parallel request (several first captures at once) created it a moment ago.
+  if (error.code === "23505") {
+    const { data: theirs } = await find();
+    if (theirs) return theirs;
+  }
+  throw new Error(`Couldn't create your board: ${error.message}`);
 }
 /** Width of the area new cards are scattered over, about five cards across. */
 const SPREAD = 5 * (CARD_WIDTH + GAP);

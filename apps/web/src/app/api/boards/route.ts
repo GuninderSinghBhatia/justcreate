@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   try {
     return NextResponse.json({ boards: [await homeBoard(auth.supabase, auth.user.id)] });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't load board" }, { status: 500 });
+    console.error("Load board failed:", err);
+    return NextResponse.json({ error: "Couldn't load board" }, { status: 500 });
   }
 }

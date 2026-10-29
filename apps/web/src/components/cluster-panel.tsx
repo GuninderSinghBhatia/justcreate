@@ -58,7 +58,7 @@ export function ClusterPanel({
   const analysed = [...references.values()].filter((r) => r.analysis).length;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-foreground/20 bg-background text-sm">
+    <aside className="animate-panel-right flex w-80 shrink-0 flex-col border-l border-foreground/20 bg-background text-sm">
       <div className="flex flex-col gap-2 border-b border-foreground/20 p-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Clusters</h2>

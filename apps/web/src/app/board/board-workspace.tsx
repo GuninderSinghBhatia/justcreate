@@ -129,7 +129,7 @@ export function BoardWorkspace({
               onMembershipChange={refresh}
             />
           ) : (
-            <div className="p-4">
+            <div className="animate-fade p-4">
               <ReferenceGrid
                 references={references}
                 onBoard
@@ -139,13 +139,16 @@ export function BoardWorkspace({
           )}
         </main>
         {view === "canvas" && selected && (
-          <ReferenceDrawer
-            key={selected.id}
-            docked
-            reference={selected}
-            onBoard
-            onClose={() => canvas.current?.focus([])}
-          />
+          // Slides in when a selection starts, not again as it moves between images.
+          <div className="animate-panel-right flex">
+            <ReferenceDrawer
+              key={selected.id}
+              docked
+              reference={selected}
+              onBoard
+              onClose={() => canvas.current?.focus([])}
+            />
+          </div>
         )}
         {showClusters && (
           <ClusterPanel

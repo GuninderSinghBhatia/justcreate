@@ -145,3 +145,14 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
   mix-blend-mode: var(--board-tape-blend);
   box-shadow: 0 1px 1px rgb(0 0 0 / 0.08);
 }
+
+/* Motion, kept small: panels slide in from their edge, views cross-fade. */
+@keyframes panel-in-left { from { opacity: 0; transform: translateX(-14px); } }
+@keyframes panel-in-right { from { opacity: 0; transform: translateX(14px); } }
+@keyframes fade-in { from { opacity: 0; } }
+.animate-panel-left { animation: panel-in-left 240ms cubic-bezier(0.32, 0.72, 0, 1); }
+.animate-panel-right { animation: panel-in-right 240ms cubic-bezier(0.32, 0.72, 0, 1); }
+.animate-fade { animation: fade-in 200ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-panel-left, .animate-panel-right, .animate-fade { animation: none; }
+}

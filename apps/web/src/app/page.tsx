@@ -36,7 +36,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </Link>
       </header>
 
-      <main id="main" className="flex flex-col">
+      <main id="main" className="handwritten flex flex-col">
         {/* Hero */}
         <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-24 pt-12 sm:px-6 lg:grid-cols-2">
           <div className="flex flex-col gap-6">

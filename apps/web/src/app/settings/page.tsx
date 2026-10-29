@@ -28,7 +28,7 @@ export default async function SettingsPage() {
     <>
       <SiteHeader context={<BarTitle>Settings</BarTitle>} />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <h1 className="text-2xl font-bold">Settings</h1>
 
         <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Usage this month</h2>

@@ -49,12 +49,33 @@ function fromFrame(img: HTMLImageElement, from: NonNullable<Zoomed["from"]>) {
  * A full-screen view of one image. It grows out of the image on the canvas, fitted to the screen;
  * click the image for actual size (scroll to pan) and again to fit. Esc, the close button or a
  * click on the backdrop shrinks it back. While open it swallows keys so Excalidraw's shortcuts
- * (Delete, arrows) don't act behind it.
+ * (Delete, arrows) don't act behind it. With `nav` it steps through a set of images (‹ › and the
+ * arrow keys), e.g. a cluster's.
  */
-export function Lightbox({ image, onClose }: { image: Zoomed; onClose: () => void }) {
+export function Lightbox({
+  image,
+  onClose,
+  nav,
+}: {
+  image: Zoomed;
+  onClose: () => void;
+  nav?: { index: number; count: number; onPrev: () => void; onNext: () => void };
+}) {
   const [full, setFull] = useState(false);
   const [src, setSrc] = useState(image.src);
   const [loaded, setLoaded] = useState(false);
+  // Stepping to another image: start it fresh (fitted, shown once loaded).
+  const [shown, setShown] = useState(image.src);
+  if (shown !== image.src) {
+    setShown(image.src);
+    setSrc(image.src);
+    setLoaded(false);
+    setFull(false);
+  }
+  const navRef = useRef(nav);
+  useEffect(() => {
+    navRef.current = nav;
+  });
   const closeButton = useRef<HTMLButtonElement>(null);
   const backdrop = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
@@ -93,7 +114,10 @@ export function Lightbox({ image, onClose }: { image: Zoomed; onClose: () => voi
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Tab") return; // keep focus moving between the controls
       e.stopImmediatePropagation();
-      if (e.key === "Escape" && e.type === "keydown") close();
+      if (e.type !== "keydown") return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowLeft") navRef.current?.onPrev();
+      else if (e.key === "ArrowRight") navRef.current?.onNext();
     };
     // Key releases too: Excalidraw acts on some (Esc clears the selection).
     window.addEventListener("keydown", onKey, true);
@@ -108,7 +132,10 @@ export function Lightbox({ image, onClose }: { image: Zoomed; onClose: () => voi
     <div role="dialog" aria-modal="true" aria-label={image.title ?? "Image"} className="fixed inset-0 z-50 flex flex-col text-white" onClick={close}>
       <div ref={backdrop} className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
       <div ref={bar} className="relative flex items-center gap-4 px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
-        <p className="min-w-0 flex-1 truncate text-white/80">{image.title}</p>
+        <p className="min-w-0 flex-1 truncate text-white/80">
+          {image.title}
+          {nav && <span className="ml-2 text-white/45 tabular-nums">{nav.index + 1} / {nav.count}</span>}
+        </p>
         {image.sourceUrl && (
           <a href={image.sourceUrl} target="_blank" rel="noreferrer" className="text-white/70 hover:text-white hover:underline">
             Open source
@@ -141,8 +168,33 @@ export function Lightbox({ image, onClose }: { image: Zoomed; onClose: () => voi
             full ? "mx-auto block max-w-none cursor-zoom-out" : "max-h-full max-w-full cursor-zoom-in rounded-sm object-contain shadow-2xl"
           }`}
         />
+        {nav && nav.count > 1 && (
+          <>
+            <StepButton side="left" label="Previous image (←)" onClick={nav.onPrev} />
+            <StepButton side="right" label="Next image (→)" onClick={nav.onNext} />
+          </>
+        )}
       </div>
     </div>,
     document.body,
+  );
+}
+
+function StepButton({ side, label, onClick }: { side: "left" | "right"; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`bar-ctl absolute top-1/2 ${side === "left" ? "left-4" : "right-4"} grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white/80 backdrop-blur hover:bg-white/20 hover:text-white`}
+    >
+      <svg viewBox="0 0 16 16" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={side === "left" ? "M10 3.5L5.5 8l4.5 4.5" : "M6 3.5L10.5 8 6 12.5"} />
+      </svg>
+    </button>
   );
 }

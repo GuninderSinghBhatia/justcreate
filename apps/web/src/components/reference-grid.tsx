@@ -15,10 +15,13 @@ export function ReferenceGrid({
   references,
   onBoard = false,
   empty,
+  onOpen,
 }: {
   references: ReferenceView[];
   onBoard?: boolean;
   empty?: React.ReactNode;
+  /** Opens a card some other way (e.g. a full-screen viewer) instead of the details drawer. */
+  onOpen?: (reference: ReferenceView) => void;
 }) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export function ReferenceGrid({
         <ul className="columns-2 gap-4 sm:columns-3 lg:columns-4 xl:columns-5">
           {references.map((r) => (
             <li key={r.id} className="mb-4 break-inside-avoid">
-              <ReferenceCard reference={r} onOpen={(ref) => setOpenId(ref.id)} selected={r.id === openId} />
+              <ReferenceCard reference={r} onOpen={(ref) => (onOpen ? onOpen(ref) : setOpenId(ref.id))} selected={r.id === openId} />
             </li>
           ))}
         </ul>

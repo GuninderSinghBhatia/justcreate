@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: RouteContext<"/api/agent
   if (!data) {
     const where = cluster ? `cluster “${cluster.name}” on board “${found.board.name}”` : `Board “${found.board.name}”`;
     return NextResponse.json(
-      { error: `${cluster ? "The " : ""}${where} has no design.md yet. Generate one in JUSTCREATE (board → design.md).` },
+      { error: `${cluster ? "The " : ""}${where} has no design.md yet. Generate one in JUSTCREATE (Clusters → the cluster’s design.md).` },
       { status: 404 },
     );
   }

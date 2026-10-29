@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { BarButton, BarDivider, BarIcon, BarSelect, Segmented } from "@/components/bar";
+import { BarButton, BarDivider, BarIcon, BarLink, BarSelect, Segmented } from "@/components/bar";
 import { SiteHeader } from "@/components/site-header";
 import { generateSpec, regenerateSection, saveSpecEdit } from "@/lib/spec-actions";
 import { CITATION_HREF, linkCitations, slug, SPEC_SECTIONS, specHeadings, type SpecSectionKey } from "@/lib/spec";
@@ -51,7 +51,6 @@ export function SpecEditor({
   boardId,
   boardName,
   scope,
-  boardHasDoc,
   referenceCount,
   markdown: saved,
   version,
@@ -66,7 +65,6 @@ export function SpecEditor({
   boardName: string;
   /** The cluster whose own design.md this is; null for the board's. */
   scope: ClusterInfo | null;
-  boardHasDoc: boolean;
   referenceCount: number;
   markdown: string;
   version: VersionInfo | null;
@@ -186,17 +184,19 @@ export function SpecEditor({
       {(running || busyElsewhere) && <AutoRefresh intervalMs={4000} />}
 
       <SiteHeader
-        section="spec"
         context={
           <>
+            {/* Back to the board: the clusters (and their design.md links) live there. */}
+            <BarLink href="/board" icon={BarIcon.back}>
+              Board
+            </BarLink>
             <BarSelect
               strong
               value={scope?.id ?? ""}
               onChange={(e) => openScope(e.target.value)}
-              aria-label="Which design.md"
+              aria-label="Which cluster's design.md"
               className="max-w-64"
             >
-              <option value="">Whole board{boardHasDoc ? "" : " · none yet"}</option>
               {clusters.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.size}){c.hasDoc ? "" : " · none yet"}
@@ -266,15 +266,7 @@ export function SpecEditor({
               >
                 {versions.length ? "Regenerate" : "Generate"}
               </BarButton>
-            ) : (
-              <GenerateMenu
-                label={versions.length ? "Regenerate" : "Generate"}
-                clusters={clusters}
-                disabled={pending || running || dirty || Boolean(busyElsewhere)}
-                disabledReason={dirty ? "Save or discard your edits first" : busyElsewhere ? `Writing ${busyElsewhere}'s design.md first` : undefined}
-                onGenerate={generate}
-              />
-            )}
+            ) : null}
           </>
         }
       />
@@ -295,8 +287,6 @@ export function SpecEditor({
       {!versions.length && !running ? (
         <EmptyState
           scope={scope}
-          clusters={clusters}
-          referenceCount={referenceCount}
           disabled={pending || Boolean(busyElsewhere)}
           onGenerate={() => generate([])}
         />
@@ -465,48 +455,26 @@ function Banner({
 
 function EmptyState({
   scope,
-  clusters,
-  referenceCount,
   disabled,
   onGenerate,
 }: {
   scope: ClusterInfo | null;
-  clusters: ClusterInfo[];
-  referenceCount: number;
   disabled: boolean;
   onGenerate: () => void;
 }) {
   if (scope) return <ClusterEmptyState cluster={scope} disabled={disabled} onGenerate={onGenerate} />;
-  const used = clusters.filter((c) => c.status === "accepted");
-  const shown = used.length ? used : clusters;
+  // Every design.md belongs to a cluster: without clusters there is nothing to write yet.
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="flex max-w-md flex-col items-center gap-4 text-center">
-        <h1 className="text-2xl">No design.md yet</h1>
+      <div className="flex max-w-md flex-col items-center gap-3 text-center">
+        <h1 className="text-2xl">No clusters yet</h1>
         <p className="text-sm text-foreground/60">
-          It turns the {referenceCount} references on your board into a spec a coding agent can build from: palette, type, layout,
-          components and motion, every value cited to the reference it came from.
+          A design.md is written for each cluster, in that cluster&apos;s style. Clusters appear on your board once a few references
+          are analysed, or select images on the canvas and make one.
         </p>
-        {shown.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {shown.map((c) => (
-              <span key={c.id} className="rounded-full border border-foreground/15 px-2.5 py-0.5 text-xs text-foreground/70">
-                {c.name} <span className="text-foreground/40">{c.size}</span>
-              </span>
-            ))}
-          </div>
-        )}
-        <button
-          onClick={onGenerate}
-          disabled={disabled}
-          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
-        >
-          Generate design.md
-        </button>
-        <p className="text-xs text-foreground/45">
-          {used.length ? "Uses your accepted clusters." : clusters.length ? "Uses the suggested clusters." : "Uses the whole board."} You can
-          edit it, rewrite single sections and download it after.
-        </p>
+        <a href="/board" className="text-sm font-semibold underline">
+          Back to the board
+        </a>
       </div>
     </div>
   );
@@ -540,90 +508,6 @@ function ClusterEmptyState({ cluster, disabled, onGenerate }: { cluster: Cluster
         </button>
         {cluster.status === "suggested" && <p className="text-xs text-foreground/45">This also accepts the cluster, so re-clustering keeps it.</p>}
       </div>
-    </div>
-  );
-}
-
-/** The generate button, with an optional choice of clusters to focus on. */
-function GenerateMenu({
-  label,
-  clusters,
-  disabled,
-  disabledReason,
-  onGenerate,
-}: {
-  label: string;
-  clusters: ClusterInfo[];
-  disabled: boolean;
-  disabledReason?: string;
-  onGenerate: (clusterIds: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [picked, setPicked] = useState<string[]>([]);
-  const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: PointerEvent) => !root.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("pointerdown", away, true);
-    window.addEventListener("keydown", esc);
-    return () => {
-      window.removeEventListener("pointerdown", away, true);
-      window.removeEventListener("keydown", esc);
-    };
-  }, [open]);
-
-  return (
-    <div ref={root} className="relative">
-      <BarButton
-        primary
-        icon={BarIcon.sparkle}
-        disabled={disabled}
-        title={disabledReason}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {label}
-        <svg viewBox="0 0 10 10" className="size-2.5 opacity-70" fill="currentColor" aria-hidden>
-          <path d="M1.5 3.5h7L5 7.5z" />
-        </svg>
-      </BarButton>
-      {open && (
-        <div role="dialog" aria-label="Generate design.md" className="animate-fade absolute top-full right-0 z-30 mt-2 w-72 rounded-lg border border-foreground/15 bg-background p-3 text-xs shadow-lg">
-          <p className="mb-2 font-sans text-foreground/60">
-            {clusters.length
-              ? "Accepted clusters are used, or the suggestions if none are accepted. Pick clusters to focus on:"
-              : "No clusters yet: the whole board is used."}
-          </p>
-          <div className="flex max-h-56 flex-col overflow-y-auto">
-            {clusters.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 rounded px-1 py-1 font-sans hover:bg-foreground/5">
-                <input
-                  type="checkbox"
-                  checked={picked.includes(c.id)}
-                  onChange={(e) => setPicked((p) => (e.target.checked ? [...p, c.id] : p.filter((x) => x !== c.id)))}
-                />
-                <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                <span className="text-foreground/40">
-                  {c.size} · {c.status}
-                </span>
-              </label>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onGenerate(picked);
-            }}
-            className="mt-2 w-full rounded-md bg-foreground px-3 py-1.5 font-medium text-background"
-          >
-            {picked.length ? `Generate from ${picked.length} cluster${picked.length > 1 ? "s" : ""}` : "Generate"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

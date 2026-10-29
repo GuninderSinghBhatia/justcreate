@@ -15,7 +15,8 @@ export interface Gallery {
 
 /**
  * One cluster's (or style's) references as a grid, over the board: the same cards and details
- * drawer as the Grid view. The canvas stays mounted underneath, so closing is instant. Esc closes.
+ * drawer as the Grid view. The canvas stays mounted underneath, so closing is instant. Back (the
+ * button, the browser's, the mouse's) and Esc close it.
  */
 export function ClusterGallery({
   gallery,
@@ -42,6 +43,11 @@ export function ClusterGallery({
   return (
     <section aria-label={gallery.title} className="animate-fade absolute inset-0 z-10 flex flex-col overflow-hidden bg-background">
       <div className="flex shrink-0 items-center gap-3 border-b border-foreground/10 px-5 py-3">
+        {/* Back first, where people look for it; browser Back and Esc close it too. */}
+        <BarButton icon={BarIcon.back} onClick={onClose} title="Back to the board (Esc)">
+          Board
+        </BarButton>
+        <span aria-hidden className="h-6 w-px shrink-0 bg-foreground/10" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-xl">
             {gallery.title} <span className="font-sans text-sm text-foreground/45 tabular-nums">{items.length}</span>

@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SessionUser } from "@/lib/supabase/server";
 import { enqueueJob } from "@/lib/jobs";
 import { must, requireUser } from "@/lib/require-user";
 
@@ -11,7 +12,7 @@ import { must, requireUser } from "@/lib/require-user";
  * group isn't suggested again.
  */
 
-type Ctx = { supabase: SupabaseClient; user: User; now: string };
+type Ctx = { supabase: SupabaseClient; user: SessionUser; now: string };
 
 /** Runs `fn` for a cluster, then refreshes the board page. */
 async function onCluster(clusterId: string, fn: (ctx: Ctx) => Promise<unknown>) {

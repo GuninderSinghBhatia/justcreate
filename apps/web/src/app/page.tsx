@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Reveal, TaglineReveal } from "@/components/landing-motion";
 import { SiteFooter } from "@/components/site-footer";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, sessionUser } from "@/lib/supabase/server";
 
 // Signed-in users go straight to their board; per request, so not prerendered.
 export const instant = false;
@@ -22,8 +22,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   // If the sign-in link falls back to the Site URL, the code lands here.
   const { code } = await searchParams;
   if (typeof code === "string") redirect(`/auth/callback?code=${encodeURIComponent(code)}`);
-  const { data } = await (await createClient()).auth.getUser();
-  if (data.user) redirect("/board");
+  if (await sessionUser(await createClient())) redirect("/board");
 
   return (
     <>

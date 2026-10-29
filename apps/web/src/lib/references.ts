@@ -10,34 +10,65 @@ export interface ReferenceView extends Reference {
   analysis?: Pick<Analysis, "caption" | "tags" | "palette" | "mood" | "components" | "effects" | "fonts"> | null;
 }
 
-const SIGNED_URL_SECONDS = 60 * 60;
+type AnalysisView = NonNullable<ReferenceView["analysis"]>;
+/** Embed this in a references select to save toViews a round trip: `references(*, ${ANALYSIS_EMBED})`. */
+export const ANALYSIS_EMBED = "analyses(caption, tags, palette, mood, components, effects, fonts)";
+/** A reference row, with its analysis when the query embedded ANALYSIS_EMBED. */
+export type ReferenceRow = Reference & { analyses?: AnalysisView[] | AnalysisView | null };
 
-/** Adds signed image URLs (thumbnail + full file) and the analysis, in two batched calls. */
-export async function toViews(supabase: SupabaseClient, references: Reference[]): Promise<ReferenceView[]> {
+const SIGNED_URL_SECONDS = 60 * 60;
+// Signed links are reused while they have 20+ minutes left: fewer storage calls on every refresh,
+// and stable URLs the browser can cache. Paths are per user, and a path is only ever looked up
+// for a reference the caller's own (RLS) query returned.
+const REUSE_MS = 40 * 60 * 1000;
+const signedCache = new Map<string, { url: string; until: number }>();
+
+async function signedUrls(supabase: SupabaseClient, paths: string[]) {
+  const now = Date.now();
+  const urls = new Map<string, string>();
+  const missing: string[] = [];
+  for (const path of paths) {
+    const hit = signedCache.get(path);
+    if (hit && hit.until > now) urls.set(path, hit.url);
+    else missing.push(path);
+  }
+  if (!missing.length) return urls;
+  if (signedCache.size > 5000) for (const [p, c] of signedCache) if (c.until <= now) signedCache.delete(p);
+  const { data } = await supabase.storage.from(CAPTURES_BUCKET).createSignedUrls(missing, SIGNED_URL_SECONDS);
+  for (const s of data ?? []) {
+    if (!s.path || !s.signedUrl) continue;
+    signedCache.set(s.path, { url: s.signedUrl, until: now + REUSE_MS });
+    urls.set(s.path, s.signedUrl);
+  }
+  return urls;
+}
+
+/** Adds signed image URLs (thumbnail + full file) and the analysis (fetched unless embedded). */
+export async function toViews(supabase: SupabaseClient, references: ReferenceRow[]): Promise<ReferenceView[]> {
   if (!references.length) return [];
   const paths = [
     ...new Set(references.flatMap((r) => [r.thumbnail_path, r.file_path]).filter((p): p is string => Boolean(p))),
   ];
-  const [signed, analyses] = await Promise.all([
-    paths.length
-      ? supabase.storage.from(CAPTURES_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS)
-      : Promise.resolve({ data: [] }),
-    supabase
-      .from("analyses")
-      .select("reference_id, caption, tags, palette, mood, components, effects, fonts")
-      .in(
-        "reference_id",
-        references.map((r) => r.id),
-      ),
+  const embedded = references.every((r) => "analyses" in r);
+  const [url, fetched] = await Promise.all([
+    signedUrls(supabase, paths),
+    embedded
+      ? null
+      : supabase
+          .from("analyses")
+          .select("reference_id, caption, tags, palette, mood, components, effects, fonts")
+          .in(
+            "reference_id",
+            references.map((r) => r.id),
+          ),
   ]);
-  const url = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl ?? undefined]));
-  const analysis = new Map((analyses.data ?? []).map((a) => [a.reference_id, a]));
-  return references.map((r) => ({
+  const analysis = new Map<string, AnalysisView>((fetched?.data ?? []).map((a) => [a.reference_id, a]));
+  return references.map(({ analyses, ...r }) => ({
     ...r,
     labels: r.labels ?? [],
     imageUrl: r.thumbnail_path ? url.get(r.thumbnail_path) : undefined,
     fileUrl: r.file_path ? url.get(r.file_path) : undefined,
-    analysis: analysis.get(r.id) ?? null,
+    analysis: (embedded ? (Array.isArray(analyses) ? analyses[0] : analyses) : analysis.get(r.id)) ?? null,
   }));
 }
 

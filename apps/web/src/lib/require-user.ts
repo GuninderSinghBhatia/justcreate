@@ -1,14 +1,14 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, sessionUser } from "@/lib/supabase/server";
 
-/** For server actions: the signed-in user and a Supabase client acting as them. */
+/** For pages and server actions: the signed-in user and a Supabase client acting as them. */
 export async function requireUser() {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/login");
-  return { supabase, user: data.user };
+  const user = await sessionUser(supabase);
+  if (!user) redirect("/login");
+  return { supabase, user };
 }
 
 /** Throws a Supabase error so the calling component can show it. */

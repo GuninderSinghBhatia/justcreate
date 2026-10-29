@@ -10,7 +10,8 @@
     "dev:ext": "npm run dev -w extension",
     "build": "npm run build -w web && npm run build -w extension",
     "dev:worker": "cd apps/worker && uv run python -m worker serve",
-    "dev": "concurrently -n web,worker -c cyan,magenta \"npm run dev:web\" \"npm run dev:worker\""
+    "dev": "concurrently -n web,worker -c cyan,magenta \"npm run dev:web\" \"npm run dev:worker\"",
+    "start": "npm run build -w web && concurrently -n web,worker -c cyan,magenta \"npm run start -w web\" \"npm run dev:worker\""
   },
   "devDependencies": {
     "concurrently": "^9.2.5"

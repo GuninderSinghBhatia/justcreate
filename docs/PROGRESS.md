@@ -8,7 +8,8 @@ Decisions: Claude builds everything, full phase order, personal tool first. AI r
 
 | Piece | Command | Notes |
 |---|---|---|
-| Web + worker | `npm run dev` | Both in one terminal (or `dev:web` / `dev:worker` separately) |
+| **Use the app** | `npm start` | Production build of the web app + worker, http://localhost:3100: much faster than dev mode (minified bundles, no on-demand compiling) |
+| Web + worker (developing) | `npm run dev` | Both in one terminal (or `dev:web` / `dev:worker` separately); hot reload, but slow pages |
 | Web app | `npm run dev:web` | http://localhost:3100 (3000 is used by another local project) |
 | Worker | `cd apps/worker && uv run python -m worker serve` | Polls the `jobs` table; web app pokes `WORKER_URL/wake` |
 | Extension | `npm run build -w extension` → load `apps/extension/.output/chrome-mv3` unpacked | Reload it on `chrome://extensions` after every rebuild |

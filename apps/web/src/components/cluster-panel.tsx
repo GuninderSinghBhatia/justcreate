@@ -14,6 +14,7 @@ import {
   setClusterStatus,
 } from "@/lib/cluster-actions";
 import type { ReferenceView } from "@/lib/references";
+import type { Gallery } from "./cluster-gallery";
 
 export type ClusterWithMembers = Cluster & { members: Pick<ClusterMember, "reference_id" | "score">[] };
 
@@ -28,6 +29,7 @@ export function ClusterPanel({
   selection,
   clustering,
   onFocus,
+  onOpen,
 }: {
   boardId: string;
   clusters: ClusterWithMembers[];
@@ -35,6 +37,8 @@ export function ClusterPanel({
   selection: string[];
   clustering: boolean;
   onFocus: (referenceIds: string[]) => void;
+  /** Shows a cluster's or style's references as a grid. */
+  onOpen: (gallery: Gallery) => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -86,7 +90,7 @@ export function ClusterPanel({
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
-      <StyleIndex references={references} onFocus={onFocus} />
+      <StyleIndex references={references} onOpen={onOpen} />
 
       <ul className="flex-1 overflow-y-auto">
         {visible.length === 0 && (
@@ -106,6 +110,7 @@ export function ClusterPanel({
               setMergeSet((s) => (s.includes(c.id) ? s.filter((id) => id !== c.id) : [...s, c.id]))
             }
             onFocus={onFocus}
+            onOpen={onOpen}
             run={run}
           />
         ))}
@@ -140,6 +145,7 @@ function ClusterRow({
   merging,
   onToggleMerge,
   onFocus,
+  onOpen,
   run,
 }: {
   cluster: ClusterWithMembers;
@@ -148,12 +154,14 @@ function ClusterRow({
   merging: boolean;
   onToggleMerge: () => void;
   onFocus: (ids: string[]) => void;
+  onOpen: (gallery: Gallery) => void;
   run: (fn: () => Promise<unknown>) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(c.name);
   const [open, setOpen] = useState(false);
-  const memberIds = c.members.map((m) => m.reference_id);
+  const memberIds = [...c.members].sort((a, b) => b.score - a.score).map((m) => m.reference_id);
+  const showImages = () => onOpen({ title: c.name, summary: c.summary, ids: memberIds });
   const addable = selection.filter((id) => !memberIds.includes(id));
 
   return (
@@ -172,7 +180,7 @@ function ClusterRow({
               <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setEditing(false)} className="w-full rounded sketch border-foreground/70 bg-transparent px-1" />
             </form>
           ) : (
-            <button onClick={() => onFocus(memberIds)} className="text-left font-medium hover:underline" title="Show on canvas">
+            <button onClick={showImages} className="text-left font-medium hover:underline" title="Show its images">
               {c.name}
             </button>
           )}
@@ -184,7 +192,7 @@ function ClusterRow({
         </div>
       </div>
 
-      <div className="mt-2 flex -space-x-2">
+      <button type="button" onClick={showImages} aria-label={`Show the images in ${c.name}`} className="bar-ctl mt-2 flex -space-x-2 rounded hover:opacity-80">
         {memberIds.slice(0, 8).map((id) => {
           const r = references.get(id);
           return (
@@ -196,7 +204,7 @@ function ClusterRow({
             </span>
           );
         })}
-      </div>
+      </button>
 
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
         {c.status === "suggested" && (
@@ -209,6 +217,9 @@ function ClusterRow({
             </button>
           </>
         )}
+        <button onClick={() => onFocus(memberIds)} className="text-foreground/60 underline">
+          Show on canvas
+        </button>
         <button onClick={() => setEditing(true)} className="text-foreground/60 underline">
           Rename
         </button>
@@ -274,9 +285,9 @@ function NewClusterForm({ count, onCreate }: { count: number; onCreate: (name: s
 /**
  * Every named design style found on the board, with how many references are it (top style) and
  * how many lean that way (second style). One reference is enough to show up here, even though a
- * cluster needs two. Clicking a style selects its references on the canvas.
+ * cluster needs two. Clicking a style shows its references as a grid.
  */
-function StyleIndex({ references, onFocus }: { references: Map<string, ReferenceView>; onFocus: (ids: string[]) => void }) {
+function StyleIndex({ references, onOpen }: { references: Map<string, ReferenceView>; onOpen: (gallery: Gallery) => void }) {
   const styles = new Map<string, { name: string; top: string[]; also: string[] }>();
   for (const r of references.values()) {
     (r.analysis?.styles ?? []).forEach((s, i) => {
@@ -295,7 +306,7 @@ function StyleIndex({ references, onFocus }: { references: Map<string, Reference
           <button
             key={s.name}
             type="button"
-            onClick={() => onFocus([...s.top, ...s.also])}
+            onClick={() => onOpen({ title: s.name, ids: [...s.top, ...s.also] })}
             title={s.also.length ? `${s.top.length} mainly, ${s.also.length} partly` : undefined}
             className="bar-ctl inline-flex items-center gap-1 rounded-full border border-foreground/15 px-2.5 py-1 font-sans text-xs text-foreground/80 hover:border-foreground/40 hover:text-foreground"
           >

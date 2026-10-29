@@ -7,12 +7,6 @@ export function SiteHeader() {
         JUSTCREATE
       </Link>
       <nav className="flex items-center gap-4 text-sm">
-        <Link href="/board" className="hover:underline">
-          Board
-        </Link>
-        <Link href="/library" className="hover:underline">
-          Library
-        </Link>
         <Link href="/connect" className="hover:underline">
           Extension
         </Link>

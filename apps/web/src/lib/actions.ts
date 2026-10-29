@@ -23,7 +23,6 @@ export async function addReferencesToBoard(referenceIds: string[]) {
   const { data } = await supabase.from("references").select("id, metadata").in("id", referenceIds);
   await addToBoard(supabase, user.id, board.id, (data ?? []) as Pick<Reference, "id" | "metadata">[]);
   revalidatePath("/board");
-  revalidatePath("/library");
 }
 
 export async function removeFromBoard(referenceId: string) {
@@ -58,7 +57,6 @@ export async function updateReference(referenceId: string, edit: ReferenceEdit) 
   }
   const { error } = await supabase.from("references").update(patch).eq("id", referenceId);
   if (error) throw new Error(error.message);
-  revalidatePath("/library");
 }
 
 export async function deleteReference(referenceId: string) {
@@ -72,5 +70,4 @@ export async function deleteReference(referenceId: string) {
   if (error) throw new Error(error.message);
   const paths = [...new Set([ref?.file_path, ref?.thumbnail_path].filter((p): p is string => Boolean(p)))];
   if (paths.length) await supabase.storage.from(CAPTURES_BUCKET).remove(paths);
-  revalidatePath("/library");
 }

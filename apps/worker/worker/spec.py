@@ -23,7 +23,7 @@ from sklearn.cluster import KMeans
 
 from .config import Settings
 from .db import Supabase, in_list
-from .llm import model_for, prompt_budget, structured
+from .llm import UNTRUSTED_RULE, model_for, prompt_budget, structured, untrusted
 from .palette import to_hex
 from .styles import STYLES
 
@@ -52,6 +52,7 @@ CITE_GROUP = re.compile(r"\[ref:\s*([0-9a-f]{6,12}(?:\s*[,;]\s*(?:ref:)?\s*[0-9a
 HEADING = re.compile(r"^## (?:\d+\.[ \t]*)?(.+?)[ \t]*$", re.M)
 LEADING_HEADING = re.compile(r"^\s*#{1,6} [^\n]*\n")
 TOP_HEADINGS = re.compile(r"^#{1,2} ", re.M)
+ACTIVE_HTML = re.compile(r"<(script|style|iframe|object|embed)\b.*?(?:</\1\s*>|$)|<(?:iframe|object|embed|link|meta|base)\b[^>]*>", re.I | re.S)
 MAX_IMAGES = 6
 
 SYSTEM = (
@@ -61,7 +62,8 @@ SYSTEM = (
     "one id per bracket: [ref:a1b2c3] [ref:d4e5f6]. "
     "(2) Tag every claim **Observed** only when the value is stated in the measured aggregates or a reference's analysis (its palette, caption, fonts, components); anything you derive or design yourself (px sizes, spacing, durations, z-index, CSS values) is **Inferred**. "
     "(3) Describe the style so it can be rebuilt; never copy logos, text or assets. "
-    "(4) Write GitHub-flavoured markdown without top-level headings; tables and bullet lists are welcome."
+    "(4) Write GitHub-flavoured markdown without top-level headings; tables and bullet lists are welcome; no HTML. "
+    "(5) " + UNTRUSTED_RULE
 )
 
 
@@ -319,7 +321,8 @@ def reference_lines(board: Board, ids: list[str] | None = None, budget: int | No
 def _reference_line(board: Board, ref_id: str) -> str:
     r, a = board.refs[ref_id], board.analyses.get(ref_id) or {}
     obs, inf = a.get("observed") or {}, a.get("inferred") or {}
-    parts = [f"[ref:{board.short[ref_id]}] {r['type']}: {r.get('title') or 'untitled'}"]
+    # Titles, notes and labels come from web pages and the user: quoted on one line (see `untrusted`).
+    parts = [f"[ref:{board.short[ref_id]}] {r['type']}: \"{untrusted(r.get('title') or 'untitled', 160)}\""]
     styles = [s.get("name") for s in inf.get("styles") or [] if isinstance(s, dict)]
     for label, value in [("design style", styles), ("caption", a.get("caption")), ("tags", a.get("tags")), ("palette", a.get("palette")),
                          ("typography (observed)", obs.get("typography")), ("layout (observed)", obs.get("layout")),
@@ -327,7 +330,7 @@ def _reference_line(board: Board, ref_id: str) -> str:
                          ("fonts (inferred)", inf.get("font_guesses")), ("motion (inferred)", inf.get("motion_hints")),
                          ("user note", r.get("note")), ("labels", r.get("labels"))]:
         if value:
-            parts.append(f"{label}: {', '.join(value) if isinstance(value, list) else value}")
+            parts.append(f"{label}: {untrusted(', '.join(map(str, value)) if isinstance(value, list) else value, 400)}")
     return " · ".join(parts)[:900]
 
 
@@ -565,7 +568,9 @@ def with_reference_map(markdown: str, board: Board) -> str:
 
 def clean_body(text: str, board: Board, title: str | None = None) -> str:
     """Model output for one section: drop a repeated section heading, demote any `#`/`##` headings so
-    they can't split the document, and drop citations to ids that aren't on this board."""
+    they can't split the document, drop citations to ids that aren't on this board, and drop active
+    HTML (script, iframe, style…) a prompt-injected reference could have talked the model into."""
+    text = ACTIVE_HTML.sub("", text)
     lead = LEADING_HEADING.match(text)
     if lead:
         level, words = re.match(r"\s*(#+) (?:\d+\.\s*)?(.*)", lead.group(0)).groups()

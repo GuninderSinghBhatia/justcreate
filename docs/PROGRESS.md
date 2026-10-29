@@ -101,7 +101,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Supabase secret key rotated (new key `justcreate_server` in `.env.local`, everything verified on it)
 - [x] Old leaked secret key deleted (you)
 - [x] Decision: run locally for now (`npm run dev` starts web + worker). `render.yaml` is ready for when the worker should run without your laptop (needs a paid ~2 GB instance)
-- [ ] Apply migration 0007 (security hardening: token rows server-only, AI design.md versions worker-only, one board per user) in the Supabase SQL editor (you)
+- [x] Migration 0007 applied (you); verified: token rows server-only (revoked tokens stay revoked), AI design.md versions worker-only, one board per user (5 parallel first captures → 1 board)
 - [ ] Before deploying: set SITE_URL to the public address; Supabase Auth redirect allow-list = exact callback URLs only
 - [ ] 60-second demo video for the landing page; launch posts
 - [ ] Optional: publish `@justcreate/mcp` to npm so setup is `npx -y @justcreate/mcp`

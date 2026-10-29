@@ -40,7 +40,7 @@ export function BoardWorkspace({
   const pathname = usePathname();
   const [view, setView] = useState<View>(initialView);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [showClusters, setShowClusters] = useState(true);
+  const [showClusters, setShowClusters] = useState(false); // opened on demand: the board starts with room to breathe
   const [selection, setSelection] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [name, setName] = useState(board.name);

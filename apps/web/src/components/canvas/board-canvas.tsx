@@ -120,6 +120,15 @@ export function BoardCanvas({
     if (api) loadFiles(api);
   }, [api, loadFiles]);
 
+  // First look: the whole board in view with wide margins, never zoomed in past 100%.
+  useEffect(() => {
+    if (!api) return;
+    const frame = requestAnimationFrame(() => {
+      if (api.getSceneElements().length) api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.72, maxZoom: 1 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [api]);
+
   // ---------- images added on the canvas become references ----------
   const uploading = useRef(new Set<string>());
   // Excalidraw shrinks inserted images to 1440px before storing them; the original is kept here

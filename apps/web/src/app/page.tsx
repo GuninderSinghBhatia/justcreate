@@ -30,7 +30,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         Skip to content
       </a>
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
-        <span className="font-hand text-xl">JUSTCREATE</span>
+        <span className="wordmark text-lg">JUSTCREATE</span>
         <Link href="/login" className={`${button} text-sm`}>
           Sign in
         </Link>

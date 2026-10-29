@@ -10,7 +10,7 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
     return (
       // z-30: the blur makes the bar its own stacking layer; its menus must stay above the canvas.
       <header className="relative z-30 flex h-12 shrink-0 items-center gap-2 border-b border-foreground/10 bg-background/85 px-3 backdrop-blur sm:px-4">
-        <Link href="/board" className="bar-ctl rounded-lg px-1.5 py-1 font-hand text-lg leading-none tracking-wide hover:bg-foreground/[0.04]">
+        <Link href="/board" className="bar-ctl wordmark rounded-lg px-1.5 py-1 text-base leading-none hover:bg-foreground/[0.04]">
           JUSTCREATE
         </Link>
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-foreground/10" />
@@ -21,7 +21,7 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
   }
   return (
     <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3 sm:px-6">
-      <Link href="/board" className="font-hand text-lg">
+      <Link href="/board" className="wordmark text-lg">
         JUSTCREATE
       </Link>
       <nav className="flex items-center gap-4 text-sm">

@@ -5,21 +5,19 @@ import { useRouter } from "next/navigation";
 import type { ReferenceView } from "@/lib/references";
 import { uploadImages } from "@/lib/upload";
 import { ReferenceCard } from "./reference-card";
-import { ReferenceDrawer, type BoardOption } from "./reference-drawer";
+import { ReferenceDrawer } from "./reference-drawer";
 
 /**
- * Masonry grid with a detail drawer. Dropping or pasting image files uploads them
- * (onto `boardId` when given, otherwise into the inbox).
+ * Masonry grid with a detail drawer. Dropping or pasting image files uploads them (they land on
+ * the board, like every capture). `onBoard`: these are the board's references.
  */
 export function ReferenceGrid({
   references,
-  boardId,
-  boards,
+  onBoard = false,
   empty,
 }: {
   references: ReferenceView[];
-  boardId?: string;
-  boards?: BoardOption[];
+  onBoard?: boolean;
   empty?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -33,7 +31,7 @@ export function ReferenceGrid({
       if (!files.some((f) => f.type.startsWith("image/"))) return;
       setUploading("Uploading…");
       try {
-        const saved = await uploadImages(files, boardId);
+        const saved = await uploadImages(files);
         setUploading(`Added ${saved.length} image${saved.length === 1 ? "" : "s"}`);
         router.refresh();
       } catch (err) {
@@ -41,7 +39,7 @@ export function ReferenceGrid({
       }
       window.setTimeout(() => setUploading(null), 3000);
     },
-    [boardId, router],
+    [router],
   );
 
   useEffect(() => {
@@ -93,7 +91,7 @@ export function ReferenceGrid({
         </ul>
       )}
       {open && (
-        <ReferenceDrawer key={open.id} reference={open} onClose={() => setOpenId(null)} boardId={boardId} boards={boards} />
+        <ReferenceDrawer key={open.id} reference={open} onClose={() => setOpenId(null)} onBoard={onBoard} />
       )}
     </div>
   );

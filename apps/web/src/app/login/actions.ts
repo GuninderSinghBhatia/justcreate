@@ -7,7 +7,7 @@ export type LoginState = { status: "idle" | "sent" | "error"; message?: string }
 
 export async function sendMagicLink(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim();
-  const next = safeNext(String(formData.get("next") ?? "/library"));
+  const next = safeNext(String(formData.get("next") ?? "/board"));
   if (!email) return { status: "error", message: "Enter your email." };
 
   const origin = (await headers()).get("origin") ?? "http://localhost:3100";
@@ -23,5 +23,5 @@ export async function sendMagicLink(_prev: LoginState, formData: FormData): Prom
 
 /** Only allow same-site relative paths, so the link can't bounce you to another site. */
 function safeNext(next: string) {
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/library";
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/board";
 }

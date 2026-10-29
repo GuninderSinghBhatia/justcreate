@@ -22,7 +22,7 @@ async function queueSpec(boardId: string, params: Record<string, unknown>) {
     throw new Error(`Monthly limit reached (${usage.limit} AI generations). Editing and downloading still work.`);
   }
   const result = await enqueueJob(user.id, "spec", { boardId }, params);
-  revalidatePath(`/boards/${boardId}/spec`);
+  revalidatePath("/board/spec");
   return result;
 }
 
@@ -42,6 +42,6 @@ export async function saveSpecEdit(boardId: string, markdown: string) {
       .from("design_specs")
       .insert({ board_id: boardId, user_id: user.id, version, markdown, kind: "edit", sources: {} }),
   );
-  revalidatePath(`/boards/${boardId}/spec`);
+  revalidatePath("/board/spec");
   return version;
 }

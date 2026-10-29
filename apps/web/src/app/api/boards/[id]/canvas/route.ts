@@ -3,15 +3,18 @@ import { touchBoard } from "@/lib/boards";
 import { requestUser } from "@/lib/request-user";
 
 interface CanvasSave {
-  /** tldraw document snapshot (getSnapshot(editor.store).document) */
+  /** Excalidraw scene: { type: "excalidraw", elements } (image files are not stored: they're the references). */
   document: unknown;
-  /** Reference cards on the canvas, in page coordinates. */
+  /** Reference images on the canvas, in scene coordinates. */
   items: { referenceId: string; x: number; y: number; w: number; h: number; z: number }[];
+  /** References this canvas had and the user deleted. Only these leave the board, so a tab that
+   *  loaded before a new capture arrived can't remove it. */
+  removed?: string[];
 }
 
 /**
- * Saves the canvas and makes board_items match the reference cards on it: cards added on the
- * canvas become board items, cards deleted from the canvas are removed from the board.
+ * Saves the canvas and keeps board_items in step with the reference images on it: images added on
+ * the canvas become board items, images deleted from it are removed from the board.
  */
 export async function PUT(request: Request, { params }: RouteContext<"/api/boards/[id]/canvas">) {
   const { id: boardId } = await params;
@@ -49,7 +52,7 @@ export async function PUT(request: Request, { params }: RouteContext<"/api/board
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const removed = [...before].filter((id) => !onCanvas.has(id));
+  const removed = (body.removed ?? []).filter((id) => before.has(id) && !onCanvas.has(id));
   if (removed.length) {
     await supabase.from("board_items").delete().eq("board_id", boardId).in("reference_id", removed);
   }

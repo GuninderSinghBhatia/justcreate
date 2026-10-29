@@ -5,6 +5,28 @@ import { CARD_WIDTH, cardSize, type Reference } from "@justcreate/shared";
 import { enqueueJob, RECLUSTER_AFTER } from "@/lib/jobs";
 
 const GAP = 24;
+
+/**
+ * Each user has exactly one board: everything they save lands on it, and clusters group it.
+ * Returns the oldest board (older accounts may have more), creating it on first use.
+ */
+export async function homeBoard(supabase: SupabaseClient, userId: string): Promise<{ id: string; name: string }> {
+  const { data } = await supabase
+    .from("boards")
+    .select("id, name")
+    .eq("user_id", userId)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  if (data) return data;
+  const { data: created, error } = await supabase
+    .from("boards")
+    .insert({ user_id: userId, name: "My board" })
+    .select("id, name")
+    .single();
+  if (error) throw new Error(`Couldn't create your board: ${error.message}`);
+  return created;
+}
 const COLUMNS = 6;
 
 /**

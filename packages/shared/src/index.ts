@@ -129,14 +129,13 @@ export interface CaptureResponse {
 }
 
 export const CARD_WIDTH = 280;
-const CARD_FOOTER = 56;
 
-/** Canvas card size: fixed width, height from the image's aspect ratio (clamped). */
+/** Canvas image size: fixed width, height from the image's aspect ratio (clamped; the canvas crops the rest). */
 export function cardSize(metadata: Record<string, unknown>) {
   const width = Number(metadata.width) || 0;
   const height = Number(metadata.height) || 0;
   const ratio = width && height ? height / width : 0.75;
-  return { w: CARD_WIDTH, h: Math.round(Math.min(Math.max(CARD_WIDTH * ratio, 120), 900) + CARD_FOOTER) };
+  return { w: CARD_WIDTH, h: Math.round(Math.min(Math.max(CARD_WIDTH * ratio, 120), 900)) };
 }
 
 /** Session handed from the web app to the extension. */

@@ -8,12 +8,12 @@ import type { Board, BoardItem } from "@justcreate/shared";
 import type { CanvasHandle } from "@/components/canvas/board-canvas";
 import { LibrarySidebar } from "@/components/canvas/library-sidebar";
 import { ClusterPanel, type ClusterWithMembers } from "@/components/cluster-panel";
-import { ReferenceDrawer, type BoardOption } from "@/components/reference-drawer";
+import { ReferenceDrawer } from "@/components/reference-drawer";
 import { ReferenceGrid } from "@/components/reference-grid";
-import { addReferencesToBoard, deleteBoard, renameBoard } from "@/lib/actions";
+import { addReferencesToBoard, renameBoard } from "@/lib/actions";
 import type { ReferenceView } from "@/lib/references";
 
-// tldraw touches window on import; render it in the browser only.
+// Excalidraw touches window on import; render it in the browser only.
 const BoardCanvas = dynamic(() => import("@/components/canvas/board-canvas").then((m) => m.BoardCanvas), {
   ssr: false,
   loading: () => <div className="flex h-full items-center justify-center text-sm text-foreground/50">Loading canvas…</div>,
@@ -25,7 +25,6 @@ export function BoardWorkspace({
   board,
   items,
   references,
-  boards,
   clusters,
   clustering,
   initialView,
@@ -33,7 +32,6 @@ export function BoardWorkspace({
   board: Board;
   items: BoardItem[];
   references: ReferenceView[];
-  boards: BoardOption[];
   clusters: ClusterWithMembers[];
   clustering: boolean;
   initialView: View;
@@ -41,7 +39,7 @@ export function BoardWorkspace({
   const router = useRouter();
   const pathname = usePathname();
   const [view, setView] = useState<View>(initialView);
-  const [showLibrary, setShowLibrary] = useState(true);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [showClusters, setShowClusters] = useState(true);
   const [selection, setSelection] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
@@ -71,23 +69,11 @@ export function BoardWorkspace({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(board.id, name))}
+          onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(name))}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
           aria-label="Board name"
           className="min-w-0 rounded border border-transparent bg-transparent px-1 font-semibold hover:border-foreground/20 focus:border-foreground/40"
         />
-        <select
-          value={board.id}
-          onChange={(e) => router.push(`/boards/${e.target.value}`)}
-          aria-label="Switch board"
-          className="rounded-md sketch border-foreground/70 bg-transparent px-2 py-1 text-xs"
-        >
-          {boards.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
         <span className="text-xs text-foreground/50">{items.length} references</span>
         <div className="ml-auto flex items-center gap-2">
           {view === "canvas" && (
@@ -108,24 +94,14 @@ export function BoardWorkspace({
               </button>
             ))}
           </div>
-          <Toggle label="Library" on={showLibrary} onClick={() => setShowLibrary((v) => !v)} />
+          <Toggle label="References" on={showLibrary} onClick={() => setShowLibrary((v) => !v)} />
           <Toggle label="Clusters" on={showClusters} onClick={() => setShowClusters((v) => !v)} />
           <Link
-            href={`/boards/${board.id}/spec`}
+            href="/board/spec"
             className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background"
           >
             design.md
           </Link>
-          <button
-            onClick={() => {
-              if (window.confirm(`Delete board “${board.name}”? Its references stay in your library.`)) {
-                start(() => deleteBoard(board.id));
-              }
-            }}
-            className="text-xs text-foreground/50 underline hover:text-red-600"
-          >
-            Delete board
-          </button>
         </div>
       </div>
 
@@ -135,7 +111,7 @@ export function BoardWorkspace({
             onBoard={onBoard}
             onAdd={(r) => {
               if (view === "canvas" && canvas.current) canvas.current.add(r);
-              else start(() => addReferencesToBoard(board.id, [r.id]));
+              else start(() => addReferencesToBoard([r.id]));
             }}
           />
         )}
@@ -143,6 +119,7 @@ export function BoardWorkspace({
           {view === "canvas" ? (
             <BoardCanvas
               boardId={board.id}
+              boardName={board.name}
               document={board.document}
               items={items}
               references={references}
@@ -155,9 +132,8 @@ export function BoardWorkspace({
             <div className="p-4">
               <ReferenceGrid
                 references={references}
-                boardId={board.id}
-                boards={boards}
-                empty={<p className="py-24 text-center text-sm text-foreground/50">This board is empty. Add references from the library, or drop images here.</p>}
+                onBoard
+                empty={<p className="py-24 text-center text-sm text-foreground/50">Nothing on the board yet. Save something with the extension, or drop images here.</p>}
               />
             </div>
           )}
@@ -167,8 +143,7 @@ export function BoardWorkspace({
             key={selected.id}
             docked
             reference={selected}
-            boardId={board.id}
-            boards={boards}
+            onBoard
             onClose={() => canvas.current?.focus([])}
           />
         )}

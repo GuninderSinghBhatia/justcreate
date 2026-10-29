@@ -1,4 +1,4 @@
-import type { CapturePayload } from '@justcreate/shared';
+import { imageUrlCandidates, type CapturePayload } from '@justcreate/shared';
 import { flushQueue, upload, type UploadResult } from '../lib/api';
 import { getSession, setSession } from '../lib/auth';
 import type {
@@ -208,15 +208,19 @@ function fullPage(tab: Tab) {
 
 // ---------- helpers ----------
 
+/** The best copy of an image the worker can read: the original behind a CDN resize when there is one. */
 async function fetchImage(url: string): Promise<Blob | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return blob.type.startsWith('image/') && blob.size > 0 ? blob : null;
-  } catch {
-    return null; // blob: URLs and some CDNs can't be read from the worker
+  for (const candidate of imageUrlCandidates(url)) {
+    try {
+      const res = await fetch(candidate);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      if (blob.type.startsWith('image/') && blob.size > 0) return blob;
+    } catch {
+      // blob: URLs and some CDNs can't be read from the worker
+    }
   }
+  return null;
 }
 
 async function viewportWidth(tab: Tab) {

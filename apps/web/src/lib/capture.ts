@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CAPTURES_BUCKET,
+  imageUrlCandidates,
   REFERENCE_TYPES,
   type CaptureMetadata,
   type CapturePayload,
@@ -102,17 +103,21 @@ export async function saveCapture(
 }
 
 /** Fallback when the extension couldn't read the file itself (e.g. CORS-locked images). */
+/** Downloads the best copy of a remote image: the original behind a CDN resize when there is one. */
 async function download(url: string): Promise<Blob | null> {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
-    const res = await fetch(parsed, { signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return blob.type.startsWith("image/") && blob.size <= MAX_BYTES ? blob : null;
-  } catch {
-    return null;
+  for (const candidate of imageUrlCandidates(url)) {
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+      const res = await fetch(parsed, { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      if (blob.type.startsWith("image/") && blob.size <= MAX_BYTES) return blob;
+    } catch {
+      // try the next copy
+    }
   }
+  return null;
 }
 
 /**

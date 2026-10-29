@@ -13,7 +13,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from .config import Settings
-from .llm import structured
+from .llm import UNTRUSTED_RULE, structured, untrusted
 from .styles import STYLE_NAMES
 
 DesignStyle = Literal[STYLE_NAMES]  # the taxonomy in styles.py: the model picks from it, never free text
@@ -53,7 +53,7 @@ SYSTEM = (
     "You analyse saved design references (websites, UI screenshots, images, video thumbnails, social posts) "
     "for a designer's moodboard tool. Describe the visual design itself, specifically and concretely, so similar "
     "references can be grouped and the style can later be rebuilt. Put only what is visible under `observed`; "
-    "put guesses under `inferred`. Tags are short, lowercase and reusable across references."
+    "put guesses under `inferred`. Tags are short, lowercase and reusable across references. " + UNTRUSTED_RULE
 )
 
 
@@ -102,7 +102,7 @@ def _context_text(context: dict[str, Any]) -> str:
     lines = [f"Reference type: {context.get('type')}"]
     for key in ("title", "host", "note", "text", "channel", "author"):
         if context.get(key):
-            lines.append(f"{key.capitalize()}: {str(context[key])[:500]}")
+            lines.append(f"{key.capitalize()}: {untrusted(context[key])}")
     if context.get("palette"):
         lines.append(f"Measured palette (exact, from pixels): {', '.join(context['palette'])}")
     lines.append("Analyse this reference.")

@@ -139,7 +139,7 @@ async function handlePopup(message: BackgroundRequest): Promise<unknown> {
 // ---------- capture flows ----------
 
 async function saveImage(tab: Tab, srcUrl: string) {
-  const file = await fetchImage(srcUrl);
+  const file = await fetchImage(srcUrl, tab.url);
   const size = file ? await imageSize(file) : undefined;
   const payload: CapturePayload = {
     type: 'image',
@@ -159,7 +159,7 @@ async function saveDetected(tab: Tab, mode: 'auto' | 'tweet' | 'video', note?: s
 
   let file: Blob | null = null;
   for (const url of detection.fileCandidates ?? []) {
-    file = await fetchImage(url);
+    file = await fetchImage(url, tab.url);
     if (file) break;
   }
   if (!file && detection.elementRect) {
@@ -222,8 +222,44 @@ function fullPage(tab: Tab) {
 // ---------- helpers ----------
 
 /** The best copy of an image the worker can read: the original behind a CDN resize when there is one. */
-async function fetchImage(url: string): Promise<Blob | null> {
+/**
+ * The extension can read any address, past CORS: a public page must not use it to pull files off
+ * the user's own machine or network (an image src pointing at localhost or a router). Pages that
+ * are themselves on such an address (an intranet) can still save their own images.
+ */
+function reachableFrom(candidate: string, pageUrl?: string) {
+  const host = (u: string) => {
+    try {
+      return new URL(u).hostname.replace(/^\[|\]$/g, '');
+    } catch {
+      return '';
+    }
+  };
+  const target = host(candidate);
+  if (!target || !isLocalHost(target)) return true; // data:, blob: and public hosts
+  return Boolean(pageUrl && isLocalHost(host(pageUrl)));
+}
+
+function isLocalHost(h: string) {
+  return (
+    h === 'localhost' ||
+    h.endsWith('.localhost') ||
+    h.endsWith('.local') ||
+    h.endsWith('.internal') ||
+    /^(127|10|0)\./.test(h) ||
+    /^169\.254\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) ||
+    h === '::1' ||
+    /^f[cd][0-9a-f]{2}:/i.test(h) ||
+    /^fe80:/i.test(h)
+  );
+}
+
+async function fetchImage(url: string, pageUrl?: string): Promise<Blob | null> {
   for (const candidate of imageUrlCandidates(url)) {
+    if (!reachableFrom(candidate, pageUrl)) continue;
     try {
       const res = await fetch(candidate);
       if (!res.ok) continue;

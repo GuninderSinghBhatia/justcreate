@@ -18,6 +18,7 @@ import type { AppState, BinaryFileData, BinaryFiles, DataURL, ExcalidrawImperati
 import { cardSize, type BoardItem } from "@justcreate/shared";
 import type { ReferenceView } from "@/lib/references";
 import { uploadImages } from "@/lib/upload";
+import { createDecor, DecorOver, DecorUnder } from "./decor";
 import { REFERENCE_DRAG_TYPE } from "./drag";
 
 const SAVE_DELAY_MS = 800;
@@ -69,6 +70,7 @@ export function BoardCanvas({
 }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const container = useRef<HTMLDivElement>(null);
+  const [decor] = useState(createDecor);
   const theme = useSyncExternalStore(subscribeScheme, () => (darkQuery()?.matches ? THEME.DARK : THEME.LIGHT), () => THEME.LIGHT);
 
   // References added on the canvas (sidebar drops, uploads) before the page data refreshes.
@@ -84,7 +86,8 @@ export function BoardCanvas({
     const missing = items.filter((i) => !present.has(i.reference_id));
     return {
       elements: [...saved, ...convertToExcalidrawElements(missing.map((i) => imageSkeleton(i.reference_id, i.x, i.y, i.w, i.h)))],
-      appState: { currentItemFontFamily: FONT_FAMILY.Virgil },
+      // Transparent so the paper and print mats (DecorUnder) show through.
+      appState: { currentItemFontFamily: FONT_FAMILY.Virgil, viewBackgroundColor: "transparent" },
       scrollToContent: true,
     };
   });
@@ -198,6 +201,7 @@ export function BoardCanvas({
   // ---------- selection → drawer ----------
   const lastSelection = useRef("");
   const onChange = (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
+    decor.update(elements, appState);
     if (!api) return;
     const ids = elements.filter((el) => appState.selectedElementIds[el.id]).flatMap((el) => referenceIdOf(el) ?? []);
     const key = ids.join(",");
@@ -314,12 +318,13 @@ export function BoardCanvas({
   return (
     <div
       ref={container}
-      className="board-canvas relative h-full w-full"
+      className="board-canvas relative isolate h-full w-full"
       onDragOverCapture={(e) => {
         if (e.dataTransfer.types.includes(REFERENCE_DRAG_TYPE)) e.preventDefault();
       }}
       onDropCapture={onDrop}
     >
+      <DecorUnder decor={decor} />
       <Excalidraw
         excalidrawAPI={setApi}
         initialData={initialData}
@@ -339,6 +344,7 @@ export function BoardCanvas({
           </WelcomeScreen.Center>
         </WelcomeScreen>
       </Excalidraw>
+      <DecorOver decor={decor} />
     </div>
   );
 }

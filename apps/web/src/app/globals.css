@@ -98,3 +98,50 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 /* The board uses Excalidraw's tools only: no main menu, shape-library button or help button. */
 /* Excalidraw's stylesheet loads after this one, so the selector outranks its rules for these buttons. */
 .board-canvas .excalidraw :is(.main-menu-trigger, .default-sidebar-trigger, .help-icon) { display: none; }
+
+/* The board as a sheet of art paper: warm tone, fine grain, a soft vignette. Prints sit on white mats
+   with a contact shadow; washi tape holds them (components/canvas/decor.tsx). */
+:root {
+  --board-paper: #f5efe3;
+  --board-vignette: rgb(120 90 50 / 0.10);
+  --board-grain-opacity: 0.35;
+  --board-mat: #fffdf8;
+  --board-shadow: 0 1px 1.5px rgb(60 40 20 / 0.18), 0 8px 18px -6px rgb(60 40 20 / 0.30);
+  --board-tape-opacity: 0.78;
+  --board-tape-blend: multiply;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --board-paper: #1c1a17;
+    --board-vignette: rgb(0 0 0 / 0.35);
+    --board-grain-opacity: 0.5;
+    --board-mat: #2c2924;
+    --board-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 22px -6px rgb(0 0 0 / 0.6);
+    --board-tape-opacity: 0.55;
+    --board-tape-blend: normal;
+  }
+}
+.board-paper {
+  background-color: var(--board-paper);
+  background-image: radial-gradient(ellipse at center, transparent 55%, var(--board-vignette));
+}
+.board-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--board-grain-opacity);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.36 0 0 0 0 0.25 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  .board-paper::before { mix-blend-mode: screen; }
+}
+.board-mat {
+  background: var(--board-mat);
+  box-shadow: var(--board-shadow);
+}
+.board-tape {
+  opacity: var(--board-tape-opacity);
+  mix-blend-mode: var(--board-tape-blend);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.08);
+}

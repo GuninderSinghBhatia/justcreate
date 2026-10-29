@@ -156,3 +156,48 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 @media (prefers-reduced-motion: reduce) {
   .animate-panel-left, .animate-panel-right, .animate-fade { animation: none; }
 }
+
+/* Excalidraw's tool bar as a slim vertical strip on the left of the board (it ships horizontal,
+   top centre). Scoped to the board and to Excalidraw's desktop layout. */
+.board-canvas .excalidraw .shapes-section {
+  position: absolute;
+  top: 0;
+  left: 0; /* the side container already insets it, in line with the zoom buttons */
+}
+.board-canvas .excalidraw .App-toolbar {
+  --lg-button-size: 2rem;
+  --default-button-size: 2rem;
+  --lg-icon-size: 1.05rem;
+  --default-icon-size: 1.05rem;
+  padding: 2px;
+}
+.board-canvas .excalidraw .App-toolbar > .Stack_horizontal {
+  grid-auto-flow: row;
+  gap: 2px;
+}
+.board-canvas .excalidraw .App-toolbar__divider {
+  width: 1.25rem;
+  height: 1px;
+  margin: 0.2rem auto;
+}
+/* Hints sit beside the strip, not under it. */
+.board-canvas .excalidraw .App-toolbar .HintViewer {
+  top: 0;
+  left: calc(100% + 12px);
+  width: max-content;
+  max-width: 22rem;
+  margin-top: 0.4rem;
+  text-align: left;
+}
+/* "More tools" opens to the right of its button. */
+.board-canvas .excalidraw .App-toolbar__extra-tools-dropdown {
+  top: auto;
+  right: auto;
+  bottom: 0;
+  left: calc(100% + 8px);
+  margin-top: 0;
+}
+/* The selected shape's properties panel moves over to clear the strip. */
+.board-canvas .excalidraw .App-menu_top__left {
+  margin-left: 3.25rem;
+}

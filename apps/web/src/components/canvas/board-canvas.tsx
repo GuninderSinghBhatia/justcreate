@@ -46,7 +46,7 @@ const referenceIdOf = (el: ExcalidrawElement): string | undefined =>
  * reference id; everything else (shapes, arrows, text, frames, freehand) is ordinary Excalidraw.
  * The scene is saved (debounced) to the board, and the server keeps board_items in step with the
  * reference images on it. Images dropped, pasted or inserted on the canvas are uploaded as references.
- * The main menu, shape-library and help buttons are hidden (globals.css): the board is just the tools.
+ * The main menu, shape-library and help buttons are hidden, and the tool bar runs down the left (globals.css).
  */
 export function BoardCanvas({
   boardId,
@@ -396,7 +396,6 @@ export function BoardCanvas({
         UIOptions={{ canvasActions: { loadScene: false } }}
       >
         <WelcomeScreen>
-          <WelcomeScreen.Hints.ToolbarHint />
           <WelcomeScreen.Center>
             <WelcomeScreen.Center.Heading>
               Save designs with the extension, or drop and paste images here. Draw around them, group them, annotate them.

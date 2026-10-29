@@ -10,6 +10,7 @@ import { LibrarySidebar } from "@/components/canvas/library-sidebar";
 import { ClusterPanel, type ClusterWithMembers } from "@/components/cluster-panel";
 import { ReferenceDrawer } from "@/components/reference-drawer";
 import { ReferenceGrid } from "@/components/reference-grid";
+import { SiteHeader } from "@/components/site-header";
 import { addReferencesToBoard, renameBoard } from "@/lib/actions";
 import type { ReferenceView } from "@/lib/references";
 
@@ -65,16 +66,17 @@ export function BoardWorkspace({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b border-foreground/20 px-4 py-2 text-sm">
+      {/* One bar: the site's logo and account menu around the board's own controls. */}
+      <SiteHeader>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(name))}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
           aria-label="Board name"
-          className="min-w-0 rounded border border-transparent bg-transparent px-1 font-semibold hover:border-foreground/20 focus:border-foreground/40"
+          className="field-sizing-content min-w-0 max-w-56 rounded border border-transparent bg-transparent px-1 font-semibold hover:border-foreground/20 focus:border-foreground/40"
         />
-        <span className="text-xs text-foreground/50">{items.length} references</span>
+        <span className="hidden text-xs whitespace-nowrap text-foreground/50 sm:inline">{items.length} references</span>
         <div className="ml-auto flex items-center gap-2">
           {view === "canvas" && (
             <span className="text-xs text-foreground/50" aria-live="polite">
@@ -103,7 +105,7 @@ export function BoardWorkspace({
             design.md
           </Link>
         </div>
-      </div>
+      </SiteHeader>
 
       <div className="flex min-h-0 flex-1">
         {showLibrary && (

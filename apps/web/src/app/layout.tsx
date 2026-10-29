@@ -30,8 +30,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${kalam.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
+      // data-paper (the canvas colour) is set by the script below, before React hydrates.
+      suppressHydrationWarning
     >
+      <head>
+        {/* The saved canvas colour, applied before first paint so the bar and board never flash
+            the default (globals.css: :root[data-paper]). Chosen in the canvas tool strip. */}
+        <script dangerouslySetInnerHTML={{ __html: PAPER_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
+
+const PAPER_SCRIPT = `try{var p=localStorage.getItem("justcreate:canvas-paper");if(p)document.documentElement.dataset.paper=p}catch(e){}`;

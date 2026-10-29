@@ -64,7 +64,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] UI: accept, reject (+ restore), rename, merge, remove / add members, make a cluster from the canvas selection, show on canvas, re-cluster
 - [x] Auto re-cluster after 10 new references; first clustering once 6 references on a board are analysed
 - [x] `python -m worker eval`: kept-or-renamed rate
-- [x] Gemini key in `apps/worker/.env` (gitignored). Free tier = 20 requests/day per model: enough to try it, not for daily use
+- [x] Groq is the active provider (`LLM_PROVIDER=groq` in `apps/worker/.env`): `qwen/qwen3.8-27b` analyses images, `openai/gpt-oss-120b` names clusters and writes design.md; free-tier per-minute limits are waited out by the SDK. Gemini key kept as a fallback provider
 - [x] Tested: worker unit tests 9/9; Phase 3 e2e 14/14 with Gemini (12/12 analysed, clusters 100% pure on a 3-family test board)
 - [ ] Hand-labelled 100-reference test set (you: collect references across 5 styles)
 
@@ -93,12 +93,12 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Tested: Phase 5 e2e 21/21 (UI token flow, API auth + scoping, MCP over stdio with the real client SDK, revoke, cap); landing checked light/dark/mobile, no overflow, no orphaned words
 - [x] Extension ↔ your Chrome: connected (confirmed on `/connect`)
 - [x] Launch prep: extension icons + web favicon; permissions trimmed to contextMenus/storage/scripting/alarms + host (extension e2e still 8/8); store zip with production URL verified; web production build passes; worker Dockerfile (CPU torch, CLIP baked in; not built locally — no Docker here) and HOST/PORT env; full steps in [LAUNCH.md](LAUNCH.md)
-- [ ] Have the privacy policy and terms reviewed; add a real contact address
-- [ ] Chrome Web Store submission (you: developer account, listing, screenshots; needs the privacy policy URL, so deploy first)
+- [ ] Legal review — deferred (local use first)
+- [ ] Chrome Web Store submission — deferred (local use first)
 - [x] Code on GitHub (private): https://github.com/GuninderSinghBhatia/justcreate — CI green (web, extension, MCP, worker)
 - [x] Supabase secret key rotated (new key `justcreate_server` in `.env.local`, everything verified on it)
-- [ ] Delete the old leaked secret key `default` (sb_secret_d93zE…) in Supabase → API Keys — blocked for automation; one click for you
-- [ ] Deploy (Vercel for web, a host for the worker) — needs your Vercel + Railway/Render sign-in; then set production URLs (`WXT_APP_URL`, Supabase Site URL)
+- [x] Old leaked secret key deleted (you)
+- [ ] Worker on Render: `render.yaml` Blueprint ready (paid 1c-2g instance, CLIP needs ~1 GB); web app stays local for now
 - [ ] 60-second demo video for the landing page; launch posts
 - [ ] Optional: publish `@justcreate/mcp` to npm so setup is `npx -y @justcreate/mcp`
 
@@ -126,3 +126,4 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - 2026-10-23: Phase 5 built and tested: API tokens, agent API, MCP server, settings, usage cap, landing + legal pages.
 - 2026-10-23: launch prep (icons, permissions, store listing text, Dockerfile, production build); extension confirmed connected in your Chrome.
 - 2026-10-23: key rotated, private GitHub repo + green CI, Phase 4 exit gate passed 3/3.
+- 2026-10-29: switched to Groq (live e2e: 6 analyses, cluster names, design.md with 10 sections / 46 citations); Render Blueprint for the worker; CI builds the worker Docker image.

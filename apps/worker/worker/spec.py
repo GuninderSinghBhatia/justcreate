@@ -23,7 +23,7 @@ from sklearn.cluster import KMeans
 
 from .config import Settings
 from .db import Supabase, in_list
-from .llm import model_for, structured
+from .llm import model_for, prompt_budget, structured
 from .palette import to_hex
 
 log = logging.getLogger(__name__)
@@ -227,40 +227,54 @@ def aggregate(board: Board) -> dict:
             "effects": counted("effects"), "tags": counted("tags", 15), "mood": counted("mood", 8)}
 
 
-def reference_lines(board: Board, ids: list[str] | None = None) -> str:
-    lines = []
-    for ref_id in ids or list(board.refs):
-        r, a = board.refs[ref_id], board.analyses.get(ref_id) or {}
-        obs, inf = a.get("observed") or {}, a.get("inferred") or {}
-        parts = [f"[ref:{board.short[ref_id]}] {r['type']}: {r.get('title') or 'untitled'}"]
-        for label, value in [("caption", a.get("caption")), ("tags", a.get("tags")), ("palette", a.get("palette")),
-                             ("typography (observed)", obs.get("typography")), ("layout (observed)", obs.get("layout")),
-                             ("components", a.get("components")), ("effects", a.get("effects")),
-                             ("fonts (inferred)", inf.get("font_guesses")), ("motion (inferred)", inf.get("motion_hints")),
-                             ("user note", r.get("note")), ("labels", r.get("labels"))]:
-            if value:
-                parts.append(f"{label}: {', '.join(value) if isinstance(value, list) else value}")
-        lines.append(" · ".join(parts)[:900])
+def reference_lines(board: Board, ids: list[str] | None = None, budget: int | None = None) -> str:
+    """One line per reference, best-scoring cluster members first. With a character budget,
+    stops when it's used up; the aggregates still cover every reference."""
+    ordered = ids or list(dict.fromkeys([r for _, members in board.groups for r in members] + list(board.refs)))
+    lines: list[str] = []
+    used = 0
+    for n, ref_id in enumerate(ordered):
+        line = _reference_line(board, ref_id)
+        if budget is not None and used + len(line) > budget and lines:
+            lines.append(f"(+{len(ordered) - n} more references not listed; their colours, fonts and components are in the aggregates)")
+            break
+        lines.append(line)
+        used += len(line) + 1
     return "\n".join(lines)
+
+
+def _reference_line(board: Board, ref_id: str) -> str:
+    r, a = board.refs[ref_id], board.analyses.get(ref_id) or {}
+    obs, inf = a.get("observed") or {}, a.get("inferred") or {}
+    parts = [f"[ref:{board.short[ref_id]}] {r['type']}: {r.get('title') or 'untitled'}"]
+    for label, value in [("caption", a.get("caption")), ("tags", a.get("tags")), ("palette", a.get("palette")),
+                         ("typography (observed)", obs.get("typography")), ("layout (observed)", obs.get("layout")),
+                         ("components", a.get("components")), ("effects", a.get("effects")),
+                         ("fonts (inferred)", inf.get("font_guesses")), ("motion (inferred)", inf.get("motion_hints")),
+                         ("user note", r.get("note")), ("labels", r.get("labels"))]:
+        if value:
+            parts.append(f"{label}: {', '.join(value) if isinstance(value, list) else value}")
+    return " · ".join(parts)[:900]
 
 
 # ---------- LLM steps ----------
 
 def generate_sections(settings: Settings, db: Supabase, board: Board, model: str) -> dict[str, str]:
     agg = aggregate(board)
+    budget = prompt_budget(settings)
     briefs = ""
     if len(board.groups) > 1:  # map: one brief per cluster
         out = []
         for name, members in board.groups:
             brief = structured(settings, "spec", SYSTEM, f"Cluster “{name}” on board “{board.name}”.\n\nReferences:\n"
-                               f"{reference_lines(board, members)}\n\nWrite the brief.", ClusterBrief, model=model)
+                               f"{reference_lines(board, members, budget)}\n\nWrite the brief.", ClusterBrief, model=model)
             out.append(f"### {name}\n" + "\n".join(f"- {k}: {v}" for k, v in brief.model_dump().items()))
         briefs = "Cluster briefs:\n" + "\n\n".join(out) + "\n\n"
     prompt = (
         f"Board: “{board.name}” — {len(board.refs)} references in {len(board.groups)} group(s): "
         f"{', '.join(n for n, _ in board.groups)}.\n\n"
-        f"Measured aggregates (exact, from pixels and analyses):\n{json.dumps(agg)}\n\n{briefs}"
-        f"References:\n{reference_lines(board)}\n\n"
+        f"Measured aggregates (exact, from pixels and analyses):\n{json.dumps(agg, separators=(',', ':'))}\n\n{briefs}"
+        f"References:\n{reference_lines(board, budget=budget)}\n\n"
         f"The attached images are key references: {', '.join(f'[ref:{board.short[r]}]' for r in key_images(board))}.\n"
         "Write every section of design.md."
     )
@@ -270,9 +284,11 @@ def generate_sections(settings: Settings, db: Supabase, board: Board, model: str
 
 def regenerate_section(settings: Settings, board: Board, current_markdown: str, section: str, model: str) -> str:
     key, title, hint = next(s for s in SECTIONS if s[0] == section)
+    budget = prompt_budget(settings)  # the current document shares the budget with the references
     prompt = (
-        f"Board: “{board.name}”. Measured aggregates:\n{json.dumps(aggregate(board))}\n\nReferences:\n{reference_lines(board)}\n\n"
-        f"Current design.md (the user may have edited it — stay consistent with it):\n{current_markdown}\n\n"
+        f"Board: “{board.name}”. Measured aggregates:\n{json.dumps(aggregate(board), separators=(',', ':'))}\n\n"
+        f"References:\n{reference_lines(board, budget=budget // 2)}\n\n"
+        f"Current design.md (the user may have edited it — stay consistent with it):\n{current_markdown[:budget]}\n\n"
         f"Rewrite only the section “{title}”. {hint}"
     )
     return structured(settings, "spec", SYSTEM, prompt, SectionText, model=model).markdown

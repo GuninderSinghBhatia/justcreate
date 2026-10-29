@@ -8,12 +8,13 @@ import { AccountMenu } from "./account-menu";
 export function SiteHeader({ children }: { children?: React.ReactNode }) {
   if (children) {
     return (
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-foreground/10 px-4">
-        <Link href="/board" className="font-hand text-base">
+      // z-30: the blur makes the bar its own stacking layer; its menus must stay above the canvas.
+      <header className="relative z-30 flex h-12 shrink-0 items-center gap-2 border-b border-foreground/10 bg-background/85 px-3 backdrop-blur sm:px-4">
+        <Link href="/board" className="bar-ctl rounded-lg px-1.5 py-1 font-hand text-lg leading-none tracking-wide hover:bg-foreground/[0.04]">
           JUSTCREATE
         </Link>
-        <span aria-hidden className="h-5 w-px bg-foreground/15" />
-        <div className="flex min-w-0 flex-1 items-center gap-3 text-sm">{children}</div>
+        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-foreground/10" />
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">{children}</div>
         <AccountMenu />
       </header>
     );

@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { BarButton, BarDivider, BarIcon, BarLink, Segmented } from "@/components/bar";
 import { SiteHeader } from "@/components/site-header";
 import { generateSpec, regenerateSection, saveSpecEdit } from "@/lib/spec-actions";
 import { CITATION_HREF, linkCitations, slug, SPEC_SECTIONS, specHeadings, type SpecSectionKey } from "@/lib/spec";
@@ -164,16 +164,16 @@ export function SpecEditor({
       {running && <AutoRefresh intervalMs={4000} />}
 
       <SiteHeader>
-        <Link href="/board" className="text-foreground/60 hover:text-foreground">
-          ← Board
-        </Link>
-        <span className="font-hand">design.md</span>
+        <BarLink href="/board" icon={BarIcon.back}>
+          Board
+        </BarLink>
+        <span className="font-hand text-base">design.md</span>
         {versions.length > 0 && (
           <select
             value={version?.version ?? ""}
             onChange={(e) => router.push(`${pathname}?v=${e.target.value}`)}
             aria-label="Version"
-            className="max-w-56 truncate rounded-md border border-foreground/15 bg-transparent px-1.5 py-1 text-xs"
+            className="h-8 max-w-56 truncate rounded-lg bg-foreground/[0.06] px-2 font-sans text-xs text-foreground/70 hover:text-foreground"
           >
             {versions.map((s) => (
               <option key={s.version} value={s.version}>
@@ -182,40 +182,35 @@ export function SpecEditor({
             ))}
           </select>
         )}
-        <div className="ml-auto flex items-center gap-2 text-xs">
+        <div className="ml-auto flex items-center gap-1">
           {versions.length > 0 && (
             <>
-              <div role="tablist" aria-label="View" className="flex overflow-hidden rounded-md sketch border-foreground/70">
-                {(["preview", "split", "edit"] as const).map((v) => (
-                  <button
-                    key={v}
-                    role="tab"
-                    aria-selected={view === v}
-                    onClick={() => setView(v)}
-                    className={`px-2.5 py-1 capitalize ${view === v ? "bg-foreground text-background" : ""}`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
+              <Segmented
+                label="View"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: "preview", label: "Preview" },
+                  { value: "split", label: "Split" },
+                  { value: "edit", label: "Edit" },
+                ]}
+              />
+              <BarDivider />
               {dirty && (
-                <button
-                  disabled={pending || running}
-                  onClick={() => run(() => saveSpecEdit(boardId, text), "Saved as a new version.")}
-                  className="rounded-md bg-foreground px-2.5 py-1 font-medium text-background disabled:opacity-50"
-                >
+                <BarButton primary disabled={pending || running} onClick={() => run(() => saveSpecEdit(boardId, text), "Saved as a new version.")}>
                   Save version
-                </button>
+                </BarButton>
               )}
-              <button
+              <BarButton
+                icon={BarIcon.copy}
                 onClick={() => navigator.clipboard.writeText(text).then(() => setMessage("Copied: paste it into your coding agent."))}
-                className="rounded-md border border-foreground/15 px-2.5 py-1 hover:border-foreground/40"
               >
                 Copy
-              </button>
-              <button onClick={download} className="rounded-md border border-foreground/15 px-2.5 py-1 hover:border-foreground/40">
-                Download .md
-              </button>
+              </BarButton>
+              <BarButton icon={BarIcon.download} onClick={download}>
+                Download
+              </BarButton>
+              <BarDivider />
             </>
           )}
           <GenerateMenu
@@ -474,17 +469,20 @@ function GenerateMenu({
 
   return (
     <div ref={root} className="relative">
-      <button
-        type="button"
+      <BarButton
+        primary
+        icon={BarIcon.sparkle}
         disabled={disabled}
         title={disabledReason}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="rounded-md bg-foreground px-2.5 py-1 font-medium text-background disabled:opacity-50"
       >
-        {label} ▾
-      </button>
+        {label}
+        <svg viewBox="0 0 10 10" className="size-2.5 opacity-70" fill="currentColor" aria-hidden>
+          <path d="M1.5 3.5h7L5 7.5z" />
+        </svg>
+      </BarButton>
       {open && (
         <div role="dialog" aria-label="Generate design.md" className="animate-fade absolute top-full right-0 z-30 mt-2 w-72 rounded-lg border border-foreground/15 bg-background p-3 text-xs shadow-lg">
           <p className="mb-2 font-sans text-foreground/60">

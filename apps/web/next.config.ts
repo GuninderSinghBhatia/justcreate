@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    // The build cache once shipped a stale globals.css (it goes through the Tailwind loader below);
+    // production builds compile from scratch instead. Dev keeps its cache.
+    turbopackFileSystemCacheForBuild: false,
+  },
   turbopack: {
     rules: {
       "*.css": {

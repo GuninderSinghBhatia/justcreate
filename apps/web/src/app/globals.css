@@ -94,3 +94,7 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 .prose-spec pre code { background: none; padding: 0; }
 .prose-spec table { width: 100%; border-collapse: collapse; font-size: 0.85em; display: block; overflow-x: auto; }
 .prose-spec th, .prose-spec td { border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+
+/* The board uses Excalidraw's tools only: no main menu, shape-library button or help button. */
+/* Excalidraw's stylesheet loads after this one, so the selector outranks its rules for these buttons. */
+.board-canvas .excalidraw :is(.main-menu-trigger, .default-sidebar-trigger, .help-icon) { display: none; }

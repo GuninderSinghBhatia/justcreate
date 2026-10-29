@@ -7,10 +7,8 @@ import {
   Excalidraw,
   FONT_FAMILY,
   getSceneVersion,
-  MainMenu,
   newElementWith,
   THEME,
-  useHandleLibrary,
   viewportCoordsToSceneCoords,
   WelcomeScreen,
 } from "@excalidraw/excalidraw";
@@ -23,7 +21,6 @@ import { uploadImages } from "@/lib/upload";
 import { REFERENCE_DRAG_TYPE } from "./drag";
 
 const SAVE_DELAY_MS = 800;
-const LIBRARY_KEY = "justcreate:excalidraw-library";
 
 export interface CanvasHandle {
   /** Selects the images for these references and zooms to them. */
@@ -47,6 +44,7 @@ const referenceIdOf = (el: ExcalidrawElement): string | undefined =>
  * reference id; everything else (shapes, arrows, text, frames, freehand) is ordinary Excalidraw.
  * The scene is saved (debounced) to the board, and the server keeps board_items in step with the
  * reference images on it. Images dropped, pasted or inserted on the canvas are uploaded as references.
+ * The main menu, shape-library and help buttons are hidden (globals.css): the board is just the tools.
  */
 export function BoardCanvas({
   boardId,
@@ -312,27 +310,6 @@ export function BoardCanvas({
     place(api, JSON.parse(raw) as ReferenceView, point.x, point.y);
   };
 
-  // Excalidraw's own shape library, kept in this browser.
-  useHandleLibrary({
-    excalidrawAPI: api,
-    adapter: {
-      load: () => {
-        try {
-          return { libraryItems: JSON.parse(localStorage.getItem(LIBRARY_KEY) ?? "[]") };
-        } catch {
-          return null;
-        }
-      },
-      save: ({ libraryItems }) => {
-        try {
-          localStorage.setItem(LIBRARY_KEY, JSON.stringify(libraryItems));
-        } catch {
-          // storage full or blocked: the library just won't persist
-        }
-      },
-    },
-  });
-
   return (
     <div
       ref={container}
@@ -352,21 +329,8 @@ export function BoardCanvas({
         // Opening a file would replace the board (and take every reference off it).
         UIOptions={{ canvasActions: { loadScene: false } }}
       >
-        <MainMenu>
-          <MainMenu.DefaultItems.SaveToActiveFile />
-          <MainMenu.DefaultItems.Export />
-          <MainMenu.DefaultItems.SaveAsImage />
-          <MainMenu.DefaultItems.SearchMenu />
-          <MainMenu.DefaultItems.CommandPalette />
-          <MainMenu.DefaultItems.Help />
-          <MainMenu.DefaultItems.ClearCanvas />
-          <MainMenu.Separator />
-          <MainMenu.DefaultItems.ChangeCanvasBackground />
-        </MainMenu>
         <WelcomeScreen>
-          <WelcomeScreen.Hints.MenuHint />
           <WelcomeScreen.Hints.ToolbarHint />
-          <WelcomeScreen.Hints.HelpHint />
           <WelcomeScreen.Center>
             <WelcomeScreen.Center.Heading>
               Save designs with the extension, or drop and paste images here. Draw around them, group them, annotate them.

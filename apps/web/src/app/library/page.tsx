@@ -19,8 +19,7 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
   const inbox = str("view") === "inbox";
 
   const supabase = await createClient();
-  const [{ data: userData }, result, labelRows] = await Promise.all([
-    supabase.auth.getUser(),
+  const [result, labelRows] = await Promise.all([
     searchReferences(supabase, {
       q: str("q"),
       type: str("type"),
@@ -37,7 +36,7 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
 
   return (
     <>
-      <SiteHeader email={userData.user?.email} />
+      <SiteHeader />
       <AutoRefresh />
       <main className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
         <div className="flex items-baseline justify-between gap-4">

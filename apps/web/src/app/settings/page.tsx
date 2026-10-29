@@ -26,7 +26,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <SiteHeader email={user.email} />
+      <SiteHeader />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-semibold">Settings</h1>
 

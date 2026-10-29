@@ -149,3 +149,48 @@ export interface ExtensionSession {
 
 /** window.postMessage type used by the /connect page → extension content script. */
 export const CONNECT_MESSAGE = 'JUSTCREATE_EXTENSION_SESSION';
+
+/**
+ * Where to fetch the best copy of an image, best first and the URL as given last. Image CDNs serve
+ * pages a resized copy (Pinterest's 236x/736x, X's name=small, Dribbble's ?resize=); these point
+ * back at the original. Try each in turn: originals can 403 when the extension is guessed wrong.
+ */
+export function imageUrlCandidates(url: string): string[] {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return [url];
+  }
+  const out: string[] = [];
+  const add = (next: string) => {
+    if (next !== url && !out.includes(next)) out.push(next);
+  };
+
+  if (u.hostname === 'i.pinimg.com') {
+    // /{size}/aa/bb/cc/hash.ext → /originals/aa/bb/cc/hash.{jpg,png,webp,gif}, then the largest resize.
+    const m = u.pathname.match(/^\/[^/]+\/(.+)\.(\w+)$/);
+    if (m) {
+      for (const ext of [m[2], 'jpg', 'png', 'webp', 'gif']) add(`${u.origin}/originals/${m[1]}.${ext}`);
+      add(`${u.origin}/1200x/${m[1]}.${m[2]}`);
+    }
+  } else if (u.hostname === 'pbs.twimg.com' && u.pathname.startsWith('/media/')) {
+    const best = new URL(u);
+    best.searchParams.set('name', 'orig');
+    add(best.href);
+    const large = new URL(u);
+    large.searchParams.set('name', 'large');
+    add(large.href);
+  } else if (u.hostname === 'cdn.dribbble.com') {
+    // Dribbble resizes with ?resize=WxH (&vertical=…): without it the upload comes back as is.
+    if (u.search) add(`${u.origin}${u.pathname}`);
+  } else if (u.hostname === 'mir-s3-cdn-cf.behance.net') {
+    // /project_modules/{404|max_1200|1400|fs|…}/file → source, then the largest rendition.
+    const m = u.pathname.match(/^\/project_modules\/[^/]+\/(.+)$/);
+    if (m) for (const size of ['source', 'fs', 'max_3840', '2800_opt_1', '1400', 'max_1200']) add(`${u.origin}/project_modules/${size}/${m[1]}`);
+  } else if (u.hostname === 'images.unsplash.com') {
+    // Unsplash's imgix params (w, h, q, fit, crop, dpr) size it down; the bare URL is the original.
+    if (u.search) add(`${u.origin}${u.pathname}`);
+  }
+  return [...out, url];
+}

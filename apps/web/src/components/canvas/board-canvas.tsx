@@ -122,6 +122,15 @@ export function BoardCanvas({
 
   // ---------- images added on the canvas become references ----------
   const uploading = useRef(new Set<string>());
+  // Excalidraw shrinks inserted images to 1440px before storing them; the original is kept here
+  // (keyed by the file id it gets) so the reference saves at full quality.
+  const originals = useRef(new Map<string, File>());
+  const generateIdForFile = useCallback(async (file: File) => {
+    const digest = await crypto.subtle.digest("SHA-1", await file.arrayBuffer());
+    const id = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    originals.current.set(id, file);
+    return id;
+  }, []);
   const uploadNew = useCallback((ed: ExcalidrawImperativeAPI, files: BinaryFiles) => {
     for (const el of ed.getSceneElements()) {
       if (el.type !== "image" || el.customData?.referenceId || !el.fileId) continue;
@@ -130,8 +139,13 @@ export function BoardCanvas({
       uploading.current.add(el.id);
       void (async () => {
         try {
-          const blob = await (await fetch(file.dataURL)).blob();
-          const [saved] = await uploadImages([new File([blob], `canvas.${blob.type.split("/")[1] ?? "png"}`, { type: blob.type })]);
+          let original = originals.current.get(el.fileId!);
+          if (!original) {
+            const blob = await (await fetch(file.dataURL)).blob();
+            original = new File([blob], `canvas.${blob.type.split("/")[1] ?? "png"}`, { type: blob.type });
+          }
+          const [saved] = await uploadImages([original]);
+          originals.current.delete(el.fileId!);
           extra.current.set(saved.id, { ...saved, labels: [], imageUrl: file.dataURL });
           ed.updateScene({
             elements: ed
@@ -352,6 +366,7 @@ export function BoardCanvas({
         theme={theme}
         name={boardName}
         showDeprecatedFonts
+        generateIdForFile={generateIdForFile}
         // Opening a file would replace the board (and take every reference off it).
         UIOptions={{ canvasActions: { loadScene: false } }}
       >
@@ -430,7 +445,16 @@ function fitCrops(ed: ExcalidrawImperativeAPI, fileId: FileId, naturalWidth: num
   const natural = naturalHeight / naturalWidth;
   let changed = false;
   const elements = ed.getSceneElementsIncludingDeleted().map((el) => {
-    if (el.type !== "image" || el.fileId !== fileId || el.crop) return el;
+    if (el.type !== "image" || el.fileId !== fileId) return el;
+    if (el.crop) {
+      // A crop saved against an earlier, smaller copy of the file (since upgraded): rescale it.
+      if (el.crop.naturalWidth === naturalWidth && el.crop.naturalHeight === naturalHeight) return el;
+      const sx = naturalWidth / el.crop.naturalWidth;
+      const sy = naturalHeight / el.crop.naturalHeight;
+      const { x, y, width, height } = el.crop;
+      changed = true;
+      return newElementWith(el, { crop: { x: x * sx, y: y * sy, width: width * sx, height: height * sy, naturalWidth, naturalHeight } });
+    }
     const box = el.height / el.width;
     if (Math.abs(box - natural) / natural < 0.02) return el;
     changed = true;

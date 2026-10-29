@@ -7,7 +7,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const ask = <T>(message: BackgroundRequest) => browser.runtime.sendMessage(message) as Promise<T>;
 
 async function init() {
-  $<HTMLAnchorElement>('library').href = `${APP_URL}/library`;
+  $<HTMLAnchorElement>('board').href = `${APP_URL}/board`;
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const status = await ask<StatusResponse>({ kind: 'status' });
 
@@ -16,7 +16,6 @@ async function init() {
   $('email').textContent = status.email ?? '';
   renderQueue(status.queued);
 
-  if (status.connected) void loadBoards(status.boardId);
 
   const url = tab?.url ?? '';
   $('page-kind').textContent = isYouTube(url)
@@ -57,13 +56,6 @@ async function init() {
   }
 }
 
-async function loadBoards(current?: string) {
-  const select = $<HTMLSelectElement>('board');
-  const { boards } = await ask<{ boards: { id: string; name: string }[] }>({ kind: 'boards' });
-  for (const b of boards) select.add(new Option(b.name, b.id));
-  select.value = boards.some((b) => b.id === current) ? current! : '';
-  select.addEventListener('change', () => void ask({ kind: 'setBoard', boardId: select.value || null }));
-}
 
 function renderQueue(count: number) {
   $('queue').hidden = count === 0;

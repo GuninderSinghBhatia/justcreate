@@ -7,16 +7,10 @@ import {
   addReferencesToBoard,
   deleteReference,
   removeFromBoard,
-  setBoardCover,
   updateReference,
 } from "@/lib/actions";
 import type { ReferenceView } from "@/lib/references";
 import { safeHost } from "./reference-card";
-
-export interface BoardOption {
-  id: string;
-  name: string;
-}
 
 /**
  * Side drawer for one reference: large preview, source link, editable title / note / labels /
@@ -26,17 +20,15 @@ export interface BoardOption {
 export function ReferenceDrawer({
   reference: r,
   onClose,
-  boardId,
-  boards = [],
+  onBoard = false,
   docked = false,
 }: {
   reference: ReferenceView;
   onClose: () => void;
   /** Render as a column in the page layout instead of an overlay (board workspace). */
   docked?: boolean;
-  /** Set when shown on a board: enables "remove from board" and "use as cover". */
-  boardId?: string;
-  boards?: BoardOption[];
+  /** True when the reference is on the board: offers "remove from board" instead of "put on board". */
+  onBoard?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -169,41 +161,20 @@ export function ReferenceDrawer({
         )}
 
         <section className="flex flex-col gap-2 border-t border-foreground/20 pt-4">
-          {boards.length > 0 && (
-            <label className="flex items-center gap-2 text-xs text-foreground/70">
-              Add to board
-              <select
-                defaultValue=""
-                onChange={(e) => {
-                  const target = e.target.value;
-                  if (target) run(() => addReferencesToBoard(target, [r.id]), "Added to board");
-                  e.target.value = "";
-                }}
-                className="flex-1 rounded-md sketch border-foreground/70 bg-transparent px-2 py-1"
-              >
-                <option value="">Choose…</option>
-                {boards
-                  .filter((b) => b.id !== boardId)
-                  .map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          )}
-          {boardId && (
-            <div className="flex gap-3 text-xs">
-              <button onClick={() => run(() => setBoardCover(boardId, r.id), "Set as cover")} className={linkClass}>
-                Use as board cover
-              </button>
-              <button
-                onClick={() => run(async () => (await removeFromBoard(boardId, r.id), onClose()), "Removed")}
-                className={linkClass}
-              >
-                Remove from board
-              </button>
-            </div>
+          {onBoard ? (
+            <button
+              onClick={() => run(async () => (await removeFromBoard(r.id), onClose()), "Removed")}
+              className={`self-start text-xs ${linkClass}`}
+            >
+              Remove from board
+            </button>
+          ) : (
+            <button
+              onClick={() => run(() => addReferencesToBoard([r.id]), "On the board")}
+              className={`self-start text-xs ${linkClass}`}
+            >
+              Put on the board
+            </button>
           )}
           <button
             onClick={() => {

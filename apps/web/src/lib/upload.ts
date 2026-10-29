@@ -1,7 +1,7 @@
 import type { CapturePayload, Reference } from "@justcreate/shared";
 
-/** Uploads dropped or pasted image files from the web app (session cookie auth). */
-export async function uploadImages(files: File[], boardId?: string): Promise<Reference[]> {
+/** Uploads dropped or pasted image files from the web app (session cookie auth); they land on the board. */
+export async function uploadImages(files: File[]): Promise<Reference[]> {
   const images = files.filter((f) => f.type.startsWith("image/"));
   const saved: Reference[] = [];
   for (const file of images) {
@@ -9,7 +9,6 @@ export async function uploadImages(files: File[], boardId?: string): Promise<Ref
     const meta: CapturePayload = {
       type: "image",
       title: file.name.replace(/\.[^.]+$/, ""),
-      boardId,
       metadata: { uploaded: true, ...size },
     };
     const form = new FormData();

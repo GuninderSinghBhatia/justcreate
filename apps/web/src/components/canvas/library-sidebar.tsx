@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReferenceView } from "@/lib/references";
-import { REFERENCE_DRAG_TYPE } from "./board-canvas";
+import { REFERENCE_DRAG_TYPE } from "./drag";
 
 /** Searchable list of saved references; drag one onto the canvas to place it. */
 export function LibrarySidebar({ onBoard, onAdd }: { onBoard: Set<string>; onAdd: (r: ReferenceView) => void }) {

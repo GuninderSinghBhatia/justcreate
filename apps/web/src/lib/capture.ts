@@ -9,7 +9,7 @@ import {
   type Reference,
 } from "@justcreate/shared";
 import { enqueueJob } from "@/lib/jobs";
-import { addToBoard } from "@/lib/boards";
+import { addToBoard, homeBoard } from "@/lib/boards";
 
 export const MAX_BYTES = 50 * 1024 * 1024;
 
@@ -33,8 +33,8 @@ export class CaptureError extends Error {
 
 /**
  * Stores one capture for `userId` using a client that acts as that user (RLS applies):
- * uploads the file (and optional card thumbnail), inserts the reference, optionally places it on
- * a board, and queues analysis.
+ * uploads the file (and optional card thumbnail), inserts the reference, places it on the user's
+ * board, and queues analysis.
  */
 export async function saveCapture(
   supabase: SupabaseClient,
@@ -89,7 +89,9 @@ export async function saveCapture(
     if (error) throw new CaptureError(`Save failed: ${error.message}`, 500);
     const reference = data as Reference;
 
-    if (payload.boardId) await addToBoard(supabase, userId, payload.boardId, [reference]);
+    // One board per user: every capture lands on it (older extensions still send a boardId).
+    const board = await homeBoard(supabase, userId);
+    await addToBoard(supabase, userId, board.id, [reference]);
     // Analysis is best effort here: the capture is saved either way.
     await enqueueJob(userId, "analyze", { referenceId: reference.id }).catch((e) => console.error(e));
     return reference;

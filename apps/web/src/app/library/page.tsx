@@ -19,7 +19,7 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
   const inbox = str("view") === "inbox";
 
   const supabase = await createClient();
-  const [{ data: userData }, result, labelRows, boards] = await Promise.all([
+  const [{ data: userData }, result, labelRows] = await Promise.all([
     supabase.auth.getUser(),
     searchReferences(supabase, {
       q: str("q"),
@@ -30,7 +30,6 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
       inbox,
     }),
     supabase.from("references").select("labels").not("labels", "eq", "{}"),
-    supabase.from("boards").select("id, name").order("updated_at", { ascending: false }),
   ]);
   const references = await toViews(supabase, (result.data ?? []) as Reference[]);
   const labels = [...new Set((labelRows.data ?? []).flatMap((r) => r.labels as string[]))].sort();
@@ -44,7 +43,7 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
         <div className="flex items-baseline justify-between gap-4">
           <h1 className="text-lg font-semibold">{inbox ? "Inbox" : "Library"}</h1>
           <p className="text-xs text-foreground/50">
-            {inbox ? "Saved items not on any board yet. " : ""}Drop or paste images to upload.
+            {inbox ? "Saved items not on the board. " : ""}Drop or paste images to upload.
           </p>
         </div>
         <Suspense>
@@ -53,13 +52,12 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
         {result.error && <p className="text-sm text-red-600">Couldn&apos;t load references: {result.error.message}</p>}
         <ReferenceGrid
           references={references}
-          boards={boards.data ?? []}
           empty={
             <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24 text-center text-sm text-foreground/60">
               {filtered ? (
                 <p>Nothing matches these filters.</p>
               ) : inbox ? (
-                <p>Inbox is empty: everything you saved is on a board.</p>
+                <p>Inbox is empty: everything you saved is on your board.</p>
               ) : (
                 <>
                   <p>Nothing saved yet.</p>

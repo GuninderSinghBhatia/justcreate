@@ -1,24 +1,23 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
+import { homeBoard } from "@/lib/boards";
 import { shortIds } from "@/lib/spec";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/require-user";
 import { SpecEditor } from "./spec-editor";
 
 // Per-user page: nothing useful to prerender.
 export const instant = false;
 
-export default async function SpecPage({ params, searchParams }: PageProps<"/boards/[id]/spec">) {
+export default async function SpecPage({ searchParams }: PageProps<"/board/spec">) {
   await connection();
-  const { id } = await params;
   const { v } = await searchParams;
-  const supabase = await createClient();
+  const { supabase, user } = await requireUser();
+  const board = await homeBoard(supabase, user.id);
+  const id = board.id;
 
-  const [{ data: userData }, { data: board }, { data: versions }, { data: clusters }, { data: items }, { data: jobs }] =
+  const [{ data: versions }, { data: clusters }, { data: items }, { data: jobs }] =
     await Promise.all([
-      supabase.auth.getUser(),
-      supabase.from("boards").select("id, name").eq("id", id).maybeSingle(),
       supabase
         .from("design_specs")
         .select("id, version, kind, created_at, sources")
@@ -34,7 +33,6 @@ export default async function SpecPage({ params, searchParams }: PageProps<"/boa
         .order("created_at", { ascending: false })
         .limit(1),
     ]);
-  if (!board) notFound();
 
   const wanted = typeof v === "string" ? Number(v) : versions?.[0]?.version;
   const current = versions?.find((s) => s.version === wanted) ?? versions?.[0];
@@ -58,9 +56,9 @@ export default async function SpecPage({ params, searchParams }: PageProps<"/boa
   const job = jobs?.[0];
   return (
     <div className="flex h-dvh flex-col">
-      <SiteHeader email={userData.user?.email} />
+      <SiteHeader email={user.email} />
       <div className="flex items-center gap-3 border-b border-foreground/10 px-4 py-2 text-sm">
-        <Link href={`/boards/${id}`} className="text-foreground/60 hover:underline">
+        <Link href="/board" className="text-foreground/60 hover:underline">
           ← {board.name}
         </Link>
         <h1 className="font-semibold">design.md</h1>

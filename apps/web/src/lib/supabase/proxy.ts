@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabasePublishableKey, supabaseUrl } from "./env";
 
-const PROTECTED = ["/library", "/connect", "/boards", "/settings"];
+const PROTECTED = ["/board", "/library", "/connect", "/settings"];
 
 /** Refreshes the auth cookies on every request and guards signed-in pages. */
 export async function updateSession(request: NextRequest) {

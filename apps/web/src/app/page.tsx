@@ -6,7 +6,7 @@ import { Reveal, TaglineReveal } from "@/components/landing-motion";
 import { SiteFooter } from "@/components/site-footer";
 import { createClient } from "@/lib/supabase/server";
 
-// Signed-in users go straight to their boards; per request, so not prerendered.
+// Signed-in users go straight to their board; per request, so not prerendered.
 export const instant = false;
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Save designs from anywhere with one right click, group them on a canvas, and get a cited design.md with real colours, type and spacing for Claude Code or Cursor.",
 };
 
-const CTA = "Start your first board";
+const CTA = "Start your board";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   await connection();
@@ -23,7 +23,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const { code } = await searchParams;
   if (typeof code === "string") redirect(`/auth/callback?code=${encodeURIComponent(code)}`);
   const { data } = await (await createClient()).auth.getUser();
-  if (data.user) redirect("/boards");
+  if (data.user) redirect("/board");
 
   return (
     <>
@@ -167,7 +167,7 @@ const BENEFITS = [
 ] as const;
 
 const STEPS = [
-  ["Capture", "Install the extension and save what you like as you browse. Everything lands on a board or in your inbox."],
+  ["Capture", "Install the extension and save what you like as you browse. Everything lands on your board."],
   ["Curate", "Arrange references on an infinite canvas. Suggested clusters appear as your board grows."],
   ["Generate", "One click writes design.md. Edit it, rewrite a single section, then hand it to your coding agent."],
 ] as const;
@@ -175,7 +175,7 @@ const STEPS = [
 const FAQ = [
   ["Which coding agents does it work with?", "Anything that reads a markdown file, plus MCP clients such as Claude Code and Cursor, which can fetch the spec and references directly with a personal token."],
   ["Does it copy the designs I save?", "No. design.md describes the style (colours, type, spacing, components) so you can build something of your own. Logos, text and images are never reproduced."],
-  ["Who can see my boards?", "Only you. Boards are private, files are stored per account, and agent tokens are read only and can be revoked at any time."],
+  ["Who can see my board?", "Only you. Your board is private, files are stored per account, and agent tokens are read only and can be revoked at any time."],
   ["What does the AI look at?", "Each saved image is analysed once for colours, type, layout and components. Specs are written from those analyses plus a few key images, which keeps them fast and cheap."],
   ["Which browsers are supported?", "Chrome for now. The web app works in any modern browser; Firefox and Safari extensions come later."],
   ["What does it cost?", "It is free during early access, with 30 AI spec generations a month. Saving, organising, editing and downloading are not limited."],

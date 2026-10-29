@@ -1,5 +1,5 @@
 import type { CapturePayload } from '@justcreate/shared';
-import { flushQueue, getDefaultBoard, listBoards, setDefaultBoard, upload, type UploadResult } from '../lib/api';
+import { flushQueue, upload, type UploadResult } from '../lib/api';
 import { getSession, setSession } from '../lib/auth';
 import type {
   BackgroundRequest,
@@ -99,14 +99,8 @@ async function handlePopup(message: BackgroundRequest): Promise<unknown> {
         connected: Boolean(session),
         email: session?.email,
         queued: await queueSize(),
-        boardId: await getDefaultBoard(),
       } satisfies StatusResponse;
     }
-    case 'boards':
-      return { boards: await listBoards() };
-    case 'setBoard':
-      await setDefaultBoard(message.boardId);
-      return { ok: true };
     case 'connected':
       await setSession(message.session);
       void retryQueue();
@@ -142,14 +136,13 @@ async function saveImage(tab: Tab, srcUrl: string) {
     // The server retries the download if the extension couldn't read the image.
     remoteFileUrl: file || srcUrl.startsWith('data:') ? undefined : srcUrl,
     metadata: { pageTitle: tab.title, ...size },
-    boardId: await getDefaultBoard(),
   };
   await finish(tab, await upload(payload, file ?? undefined), 'Image saved');
 }
 
 async function saveDetected(tab: Tab, mode: 'auto' | 'tweet' | 'video', note?: string) {
   const detection = await send<Detection>(tab, { kind: 'detect', mode });
-  const payload: CapturePayload = { ...detection.payload, note: note || undefined, boardId: await getDefaultBoard() };
+  const payload: CapturePayload = { ...detection.payload, note: note || undefined };
 
   let file: Blob | null = null;
   for (const url of detection.fileCandidates ?? []) {
@@ -194,7 +187,6 @@ async function saveScreenshot(tab: Tab, mode: ScreenshotMode, note?: string) {
     pageUrl: tab.url,
     title: tab.title,
     note: note || undefined,
-    boardId: await getDefaultBoard(),
     metadata: {
       screenshotMode: mode,
       pageTitle: tab.title,

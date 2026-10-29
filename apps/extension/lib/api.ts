@@ -75,28 +75,3 @@ export async function flushQueue(): Promise<number> {
   return saved;
 }
 
-export interface BoardSummary {
-  id: string;
-  name: string;
-}
-
-/** The user's boards, for the popup's board picker. */
-export async function listBoards(): Promise<BoardSummary[]> {
-  const token = await getAccessToken();
-  if (!token) return [];
-  const res = await fetch(`${APP_URL}/api/boards`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) return [];
-  return ((await res.json()) as { boards: BoardSummary[] }).boards;
-}
-
-const BOARD_KEY = 'defaultBoardId';
-
-/** Board that saves go to (chosen in the popup). Unset → the inbox. */
-export async function getDefaultBoard(): Promise<string | undefined> {
-  return ((await browser.storage.local.get(BOARD_KEY))[BOARD_KEY] as string | undefined) || undefined;
-}
-
-export async function setDefaultBoard(boardId: string | null) {
-  if (boardId) await browser.storage.local.set({ [BOARD_KEY]: boardId });
-  else await browser.storage.local.remove(BOARD_KEY);
-}

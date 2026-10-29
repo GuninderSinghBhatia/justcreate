@@ -13,12 +13,12 @@ import { must, requireUser } from "@/lib/require-user";
 
 type Ctx = { supabase: SupabaseClient; user: User; now: string };
 
-/** Runs `fn` for a cluster, then refreshes its board page. */
+/** Runs `fn` for a cluster, then refreshes the board page. */
 async function onCluster(clusterId: string, fn: (ctx: Ctx) => Promise<unknown>) {
   const { supabase, user } = await requireUser();
-  const { data } = must(await supabase.from("clusters").select("board_id").eq("id", clusterId).single());
+  must(await supabase.from("clusters").select("id").eq("id", clusterId).single()); // yours, or it throws
   await fn({ supabase, user, now: new Date().toISOString() });
-  revalidatePath(`/boards/${data!.board_id}`);
+  revalidatePath("/board");
 }
 
 const members = (clusterId: string, referenceIds: string[], userId: string, score = 1) =>
@@ -84,12 +84,12 @@ export async function createManualCluster(boardId: string, name: string, referen
       .single(),
   );
   if (referenceIds.length) must(await supabase.from("cluster_members").insert(members(data!.id, referenceIds, user.id)));
-  revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/board");
 }
 
 /** "Re-cluster" button: queue a clustering run for the board. */
 export async function reclusterBoard(boardId: string) {
   const { user } = await requireUser();
   await enqueueJob(user.id, "cluster", { boardId });
-  revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/board");
 }

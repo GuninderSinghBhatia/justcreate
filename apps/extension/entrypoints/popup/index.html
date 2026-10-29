@@ -9,7 +9,7 @@
   <body>
     <header>
       <strong>JUSTCREATE</strong>
-      <a id="library" href="#" target="_blank">Library ↗</a>
+      <a id="board" href="#" target="_blank">Board ↗</a>
     </header>
 
     <section id="disconnected" hidden>
@@ -18,12 +18,6 @@
     </section>
 
     <section id="connected" hidden>
-      <label class="field">
-        Save to
-        <select id="board">
-          <option value="">Inbox (no board)</option>
-        </select>
-      </label>
       <textarea id="note" rows="2" placeholder="Note (optional)"></textarea>
       <button id="save-page" class="primary">Save this page</button>
       <p class="hint" id="page-kind"></p>
@@ -32,7 +26,7 @@
         <button data-shot="region">Region</button>
         <button data-shot="fullpage">Full page</button>
       </div>
-      <p class="hint">Right-click saves and shortcuts also go to this board.</p>
+      <p class="hint">Everything you save lands on your board.</p>
       <p class="queue" id="queue" hidden>
         <span id="queue-count"></span>
         <button id="retry" class="link">Retry now</button>

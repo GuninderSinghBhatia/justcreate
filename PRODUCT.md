@@ -7,7 +7,7 @@
 **Core loop:** capture → curate on the board → accept clusters → generate design.md → hand it to an agent.
 
 **Surfaces and modes**
-- The board (Excalidraw canvas + grid), library, clusters, design.md editor, settings, extension connect: **Operate**.
+- The board (Excalidraw canvas + grid), clusters, design.md editor, settings, extension connect: **Operate**.
 - Landing page (`/`): **Persuade**.
 - Privacy, terms: **Read**.
 

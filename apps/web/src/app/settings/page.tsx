@@ -1,7 +1,7 @@
 import path from "node:path";
 import { headers } from "next/headers";
 import { connection } from "next/server";
-import { SiteHeader } from "@/components/site-header";
+import { BarTitle, SiteHeader } from "@/components/site-header";
 import { requireUser } from "@/lib/require-user";
 import { generationsThisMonth } from "@/lib/usage";
 import { TokenManager } from "./token-manager";
@@ -26,7 +26,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader context={<BarTitle>Settings</BarTitle>} />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-semibold">Settings</h1>
 

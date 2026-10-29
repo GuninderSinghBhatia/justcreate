@@ -11,7 +11,7 @@ import { ClusterGallery, type Gallery } from "@/components/cluster-gallery";
 import { ReferenceDrawer } from "@/components/reference-drawer";
 import { ReferenceGrid } from "@/components/reference-grid";
 import { SiteHeader } from "@/components/site-header";
-import { BarDivider, BarIcon, BarLink, BarToggle, SaveStatus, Segmented } from "@/components/bar";
+import { BarDivider, BarIcon, BarToggle, SaveStatus, Segmented } from "@/components/bar";
 import { addReferencesToBoard, renameBoard } from "@/lib/actions";
 import type { ReferenceView } from "@/lib/references";
 
@@ -75,43 +75,51 @@ export function BoardWorkspace({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* One bar: the site's logo and account menu around the board's own controls. */}
-      <SiteHeader>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(name))}
-          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-          aria-label="Board name"
-          className="field-sizing-content h-8 min-w-0 max-w-56 rounded-lg border border-transparent bg-transparent px-2 font-sans text-sm font-semibold hover:bg-foreground/[0.04] focus:border-foreground/25 focus:bg-transparent"
-        />
-        <span className="hidden shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 font-sans text-xs whitespace-nowrap text-foreground/55 tabular-nums sm:inline">
-          {items.length} {items.length === 1 ? "reference" : "references"}
-        </span>
-        <div className="ml-auto flex items-center gap-1">
-          {view === "canvas" && <SaveStatus state={saveState} />}
-          <Segmented
-            label="View"
-            value={view}
-            onChange={switchView}
-            options={[
-              { value: "canvas", label: "Canvas", icon: BarIcon.canvas },
-              { value: "grid", label: "Grid", icon: BarIcon.grid },
-            ]}
-          />
-          <BarDivider />
-          <BarToggle on={showLibrary} onClick={() => setShowLibrary((v) => !v)} icon={BarIcon.references}>
-            References
-          </BarToggle>
-          <BarToggle on={showClusters} onClick={() => setShowClusters((v) => !v)} icon={BarIcon.clusters}>
-            Clusters
-          </BarToggle>
-          <BarDivider />
-          <BarLink href="/board/spec" primary icon={BarIcon.doc}>
-            design.md
-          </BarLink>
-        </div>
-      </SiteHeader>
+      <SiteHeader
+        section="board"
+        context={
+          <>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => name.trim() && name !== board.name && start(() => renameBoard(name))}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              aria-label="Board name"
+              title="Rename the board"
+              className="field-sizing-content h-8 min-w-0 max-w-56 rounded-lg border border-transparent bg-transparent px-2 font-semibold hover:bg-foreground/[0.05] focus:border-foreground/25 focus:bg-transparent"
+            />
+            <span className="hidden shrink-0 text-xs whitespace-nowrap text-foreground/45 tabular-nums sm:inline">
+              {items.length} {items.length === 1 ? "reference" : "references"}
+            </span>
+            {view === "canvas" && (
+              <>
+                <span aria-hidden className="hidden text-foreground/25 md:inline">·</span>
+                <SaveStatus state={saveState} />
+              </>
+            )}
+          </>
+        }
+        tools={
+          <>
+            <Segmented
+              label="View"
+              value={view}
+              onChange={switchView}
+              options={[
+                { value: "canvas", label: "Canvas", icon: BarIcon.canvas },
+                { value: "grid", label: "Grid", icon: BarIcon.grid },
+              ]}
+            />
+            <BarDivider />
+            <BarToggle on={showLibrary} onClick={() => setShowLibrary((v) => !v)} icon={BarIcon.references}>
+              References
+            </BarToggle>
+            <BarToggle on={showClusters} onClick={() => setShowClusters((v) => !v)} icon={BarIcon.clusters}>
+              Clusters
+            </BarToggle>
+          </>
+        }
+      />
 
       <div className="flex min-h-0 flex-1">
         {showLibrary && (

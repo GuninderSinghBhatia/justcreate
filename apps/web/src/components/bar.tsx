@@ -91,7 +91,7 @@ export function BarDivider() {
 export function SaveStatus({ state }: { state: "saved" | "saving" | "error" }) {
   const dot = state === "error" ? "bg-red-500" : state === "saving" ? "bg-amber-500 spec-pulse" : "bg-emerald-500";
   return (
-    <span aria-live="polite" className="hidden w-20 shrink-0 items-center gap-1.5 font-sans text-xs text-foreground/50 md:inline-flex">
+    <span aria-live="polite" className="hidden shrink-0 items-center gap-1.5 font-sans text-xs text-foreground/50 md:inline-flex">
       <span aria-hidden className={`size-1.5 rounded-full ${dot}`} />
       {state === "saving" ? "Saving…" : state === "error" ? "Not saved" : "Saved"}
     </span>
@@ -162,5 +162,29 @@ function Svg({ children }: { children: React.ReactNode }) {
     <svg viewBox="0 0 16 16" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       {children}
     </svg>
+  );
+}
+
+/** A dropdown in the bar's tinted track style (same fill as the segmented switch). */
+export function BarSelect({
+  strong,
+  className = "",
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement> & { strong?: boolean }) {
+  return (
+    <span className={`relative inline-flex h-8 min-w-0 items-center ${className}`}>
+      <select
+        {...props}
+        className={`bar-ctl h-8 w-full min-w-0 appearance-none truncate rounded-lg bg-foreground/[0.06] py-0 pr-7 pl-2.5 font-sans text-[13px] hover:bg-foreground/10 ${
+          strong ? "font-semibold text-foreground" : "text-foreground/70"
+        }`}
+      >
+        {children}
+      </select>
+      <svg viewBox="0 0 10 10" className="pointer-events-none absolute right-2.5 size-2.5 opacity-50" fill="currentColor" aria-hidden>
+        <path d="M1.5 3.5h7L5 7.5z" />
+      </svg>
+    </span>
   );
 }

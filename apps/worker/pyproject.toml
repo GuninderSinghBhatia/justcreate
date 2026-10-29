@@ -13,6 +13,7 @@ dependencies = [
   "scikit-learn>=1.5",
   "open-clip-torch>=2.26",
   "torch>=2.4",
+  "torchvision>=0.19",  # declared so it can follow torch to the CPU index on Linux
   "pydantic>=2.8",
   "google-genai>=1.30",
   "groq>=0.30",
@@ -35,3 +36,4 @@ explicit = true
 
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

@@ -12,19 +12,21 @@ import numpy as np
 from PIL import Image
 
 from . import vision
-from .cluster import filter_known, similarity, suggest_from_similarity
+from .cluster import filter_known, similarity, style_groups, suggest_from_similarity
 from .config import Settings
 from .db import Supabase, in_list
 from .embed import get_clip
 from .naming import name_clusters
 from .palette import extract_palette
 from .spec import run_spec_job
+from .styles import BY_KEY, assign, style_scores, style_text_matrix, word_scores
 
 log = logging.getLogger(__name__)
 
 THUMB_MAX = 640
 THUMB_SKIP_BYTES = 150_000  # files this small are already fine as card images
 FIRST_CLUSTER_AT = 6  # a board gets its first clustering once this many references are analysed
+_style_matrix: tuple[str, np.ndarray] | None = None  # (CLIP version, style prompt embeddings), built once
 
 
 class Defer(Exception):
@@ -245,7 +247,8 @@ class Worker:
         self._wait_for_analyses(board_id, ids_on_board)
         emb = self.db.select("embeddings", {"reference_id": in_list(ids_on_board), "select": "reference_id,image_embedding,text_embedding"})
         ana = {a["reference_id"]: a for a in self.db.select("analyses", {
-            "reference_id": in_list(ids_on_board), "select": "reference_id,tags,mood,components,caption,model_version"})}
+            "reference_id": in_list(ids_on_board),
+            "select": "reference_id,tags,mood,components,effects,caption,model_version,inferred,picked:raw->design_styles"})}
 
         ids, images, texts = [], [], []
         for e in emb:
@@ -265,21 +268,35 @@ class Worker:
         rejected = [members_of(c) for c in existing if c["status"] == "rejected"]
         protected = [members_of(c) for c in existing if c["status"] == "accepted" or c["source"] == "user"]
 
-        suggestions = suggest_from_similarity(ids, similarity(images, texts, sim_tags), tags) if len(ids) >= 4 else []
-        suggestions = filter_known(suggestions, rejected, protected)
+        # 1. By named design style (ASCII Art, Neo-Brutalism, …): each reference's styles are scored
+        #    and saved with its analysis; a style shared by 2+ references is a cluster.
+        calls = self._style_calls(ids, images, texts, ana)
+        self._save_styles(ids, calls, ana)
+        stale = [c["id"] for c in existing if c["status"] == "suggested" and c["source"] == "ai"]
+        keep_names = {c["name"].lower() for c in existing if c["id"] not in stale}
+        groups = [g for g in style_groups(ids, calls) if BY_KEY[g.style].name.lower() not in keep_names]
+        kept = {id(s) for s in filter_known([g.suggestion for g in groups], rejected, protected)}
+        named = [(g.suggestion, BY_KEY[g.style].name, _style_summary(g.style)) for g in groups if id(g.suggestion) in kept]
+
+        # 2. What no style covers: grouped by look, as before, and named by the model.
+        covered = {r for g in groups for r in g.suggestion.members}
+        rest = [i for i, r in enumerate(ids) if r not in covered]
+        leftover = []
+        if len(rest) >= 4:
+            sim = similarity(images, texts, sim_tags)[np.ix_(rest, rest)]
+            leftover = filter_known(suggest_from_similarity([ids[i] for i in rest], sim, tags), rejected, protected)
+        names = name_clusters(self.settings, [
+            {"tags": [tags.get(r, []) for r in s.members], "captions": [ana.get(r, {}).get("caption") for r in s.members]}
+            for s in leftover
+        ], [c["name"] for c in existing if c["id"] not in stale] + [n for _, n, _ in named])
+        named += [(s, name, summary) for s, (name, summary) in zip(leftover, names)]
+        suggestions = [s for s, _, _ in named]
 
         # Replace only previous *suggestions*; accepted, user-made and rejected clusters stay.
-        stale = [c["id"] for c in existing if c["status"] == "suggested" and c["source"] == "ai"]
         if stale:
             self.db.delete("clusters", {"id": in_list(stale)})
 
-        keep_names = [c["name"] for c in existing if c["id"] not in stale]
-        names = name_clusters(self.settings, [
-            {"tags": [tags.get(r, []) for r in s.members], "captions": [ana.get(r, {}).get("caption") for r in s.members]}
-            for s in suggestions
-        ], keep_names)
-
-        for s, (name, summary) in zip(suggestions, names):
+        for s, name, summary in named:
             created = self.db.insert("clusters", {
                 "board_id": board_id, "user_id": user_id, "name": name, "ai_name": name,
                 "summary": summary, "status": "suggested", "source": "ai",
@@ -289,7 +306,34 @@ class Worker:
                 for r, score in s.members.items()
             ])
         self.db.update("boards", {"id": f"eq.{board_id}"}, {"clustered_at": _now()})
-        log.info("board %s: %d references → %d suggestions", board_id, len(ids), len(suggestions))
+        log.info("board %s: %d references → %d suggestions (%d by style)", board_id, len(ids), len(suggestions), len(named) - len(leftover))
+
+    def _style_calls(self, ids: list[str], images: list, texts: list, ana: dict) -> list[list[tuple[str, float]]]:
+        """Each reference's confident design styles (styles.py), best first, as (key, score)."""
+        global _style_matrix
+        clip = get_clip(self.settings)
+        if _style_matrix is None or _style_matrix[0] != clip.version:
+            _style_matrix = (clip.version, style_text_matrix(clip.text))
+        words, picked = [], []
+        for r in ids:
+            a = ana.get(r)
+            real = not _fallback(a)
+            words.append(" ".join([*(a.get("tags") or []), *(a.get("mood") or []), *(a.get("effects") or []), a.get("caption") or ""]) if real else "")
+            picked.append([p for p in (a.get("picked") or []) if isinstance(p, str)] if real else [])
+        scores = style_scores(images, texts, word_scores(words, picked), _style_matrix[1])
+        return [[(c.key, c.score) for c in calls] for calls in assign(scores)]
+
+    def _save_styles(self, ids: list[str], calls: list[list[tuple[str, float]]], ana: dict) -> None:
+        """Stores each reference's styles in its analysis (`inferred.styles`), for the reference
+        panel, the grid and design.md. Writes only what changed."""
+        for r, picks in zip(ids, calls):
+            a = ana.get(r)
+            if not a:
+                continue
+            styles = [{"key": k, "name": BY_KEY[k].name, "score": round(s, 3)} for k, s in picks]
+            inferred = a.get("inferred") or {}
+            if inferred.get("styles") != styles:
+                self.db.update("analyses", {"reference_id": f"eq.{r}"}, {"inferred": {**inferred, "styles": styles}})
 
 
 def _open(raw: bytes) -> Image.Image | None:
@@ -324,3 +368,8 @@ def _parse_vec(v) -> np.ndarray | None:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _style_summary(key: str) -> str:
+    look = BY_KEY[key].look
+    return look[0].upper() + look[1:] + "."

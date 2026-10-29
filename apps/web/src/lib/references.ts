@@ -7,12 +7,15 @@ import { CAPTURES_BUCKET, type Analysis, type Reference } from "@justcreate/shar
 export interface ReferenceView extends Reference {
   imageUrl?: string;
   fileUrl?: string;
-  analysis?: Pick<Analysis, "caption" | "tags" | "palette" | "mood" | "components" | "effects" | "fonts"> | null;
+  analysis?: (Pick<Analysis, "caption" | "tags" | "palette" | "mood" | "components" | "effects" | "fonts"> & {
+    /** Named design styles the worker matched (apps/worker/worker/styles.py), best first. */
+    styles?: { key: string; name: string; score: number }[] | null;
+  }) | null;
 }
 
 type AnalysisView = NonNullable<ReferenceView["analysis"]>;
 /** Embed this in a references select to save toViews a round trip: `references(*, ${ANALYSIS_EMBED})`. */
-export const ANALYSIS_EMBED = "analyses(caption, tags, palette, mood, components, effects, fonts)";
+export const ANALYSIS_EMBED = "analyses(caption, tags, palette, mood, components, effects, fonts, styles:inferred->styles)";
 /** A reference row, with its analysis when the query embedded ANALYSIS_EMBED. */
 export type ReferenceRow = Reference & { analyses?: AnalysisView[] | AnalysisView | null };
 
@@ -56,13 +59,13 @@ export async function toViews(supabase: SupabaseClient, references: ReferenceRow
       ? null
       : supabase
           .from("analyses")
-          .select("reference_id, caption, tags, palette, mood, components, effects, fonts")
+          .select("reference_id, caption, tags, palette, mood, components, effects, fonts, styles:inferred->styles")
           .in(
             "reference_id",
             references.map((r) => r.id),
           ),
   ]);
-  const analysis = new Map<string, AnalysisView>((fetched?.data ?? []).map((a) => [a.reference_id, a]));
+  const analysis = new Map<string, AnalysisView>((fetched?.data ?? []).map((a) => [a.reference_id, a as unknown as AnalysisView]));
   return references.map(({ analyses, ...r }) => ({
     ...r,
     labels: r.labels ?? [],

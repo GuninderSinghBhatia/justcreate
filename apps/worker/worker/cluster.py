@@ -138,6 +138,28 @@ def suggest_from_similarity(ids: list[str], sim: np.ndarray, tags: dict[str, lis
     return suggestions
 
 
+@dataclass
+class StyleGroup:
+    style: str  # styles.STYLES key
+    suggestion: Suggestion
+
+
+def style_groups(ids: list[str], calls: list[list[tuple[str, float]]], min_size: int = 2) -> list[StyleGroup]:
+    """References grouped by named design style: a reference's top style makes it a core member,
+    a close second style a soft one. Styles with fewer than `min_size` references (or no core
+    member) don't make a cluster; those references are left for similarity clustering."""
+    by_style: dict[str, Suggestion] = {}
+    for ref, picks in zip(ids, calls):
+        for rank, (key, score) in enumerate(picks):
+            s = by_style.setdefault(key, Suggestion(members={}))
+            s.members[ref] = score
+            if rank == 0:
+                s.core.add(ref)
+    groups = [StyleGroup(k, s) for k, s in by_style.items() if len(s.members) >= min_size and s.core]
+    groups.sort(key=lambda g: (-len(g.suggestion.core), -len(g.suggestion.members)))
+    return groups
+
+
 def default_min_size(n: int) -> int:
     """3 on small boards (a moodboard of 20 has a few small families), growing slowly with size."""
     return max(3, min(8, n // 15 + 2))

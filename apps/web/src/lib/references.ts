@@ -47,6 +47,11 @@ export async function signedUrls(supabase: SupabaseClient, paths: string[]) {
 }
 
 /** Adds signed image URLs (thumbnail + full file) and the analysis (fetched unless embedded). */
+/** A link the app may render: http(s) only, else null. */
+export function webLink(url: string | null | undefined) {
+  return url && /^https?:\/\//i.test(url) ? url : null;
+}
+
 export async function toViews(supabase: SupabaseClient, references: ReferenceRow[]): Promise<ReferenceView[]> {
   if (!references.length) return [];
   const paths = [
@@ -68,6 +73,8 @@ export async function toViews(supabase: SupabaseClient, references: ReferenceRow
   const analysis = new Map<string, AnalysisView>((fetched?.data ?? []).map((a) => [a.reference_id, a as unknown as AnalysisView]));
   return references.map(({ analyses, ...r }) => ({
     ...r,
+    source_url: webLink(r.source_url),
+    page_url: webLink(r.page_url),
     labels: r.labels ?? [],
     imageUrl: r.thumbnail_path ? url.get(r.thumbnail_path) : undefined,
     fileUrl: r.file_path ? url.get(r.file_path) : undefined,

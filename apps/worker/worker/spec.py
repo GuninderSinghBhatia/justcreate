@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, create_model
 from sklearn.cluster import KMeans
 
 from .config import Settings
-from .db import Supabase, in_list
+from .db import Supabase, in_list, owned_path
 from .llm import UNTRUSTED_RULE, model_for, prompt_budget, structured, untrusted
 from .palette import to_hex
 from .styles import STYLES
@@ -52,6 +52,8 @@ CITE_GROUP = re.compile(r"\[ref:\s*([0-9a-f]{6,12}(?:\s*[,;]\s*(?:ref:)?\s*[0-9a
 HEADING = re.compile(r"^## (?:\d+\.[ \t]*)?(.+?)[ \t]*$", re.M)
 LEADING_HEADING = re.compile(r"^\s*#{1,6} [^\n]*\n")
 TOP_HEADINGS = re.compile(r"^#{1,2} ", re.M)
+# A downloaded script piped into a shell: never a design instruction, however it got into the text.
+SHELL_PIPE = re.compile(r"^.*\b(?:curl|wget|iwr|Invoke-WebRequest)\b[^\n]*\|\s*(?:sudo\s+)?(?:ba|z)?sh\b.*$\n?", re.I | re.M)
 ACTIVE_HTML = re.compile(r"<(script|style|iframe|object|embed)\b.*?(?:</\1\s*>|$)|<(?:iframe|object|embed|link|meta|base)\b[^>]*>", re.I | re.S)
 MAX_IMAGES = 6
 
@@ -230,7 +232,7 @@ def load_board(db: Supabase, user_id: str, board_id: str, cluster_ids: list[str]
     ids = sorted({r for _, members in groups for r in members}) if cluster_ids else on_board
     if not groups:
         groups = [("Whole board", ids)]
-    refs = {r["id"]: r for r in db.select("references", {"id": in_list(ids), **mine, "select": "id,type,title,source_url,page_url,thumbnail_path,file_path,note,labels"})} if ids else {}
+    refs = {r["id"]: r for r in db.select("references", {"id": in_list(ids), **mine, "select": "id,user_id,type,title,source_url,page_url,thumbnail_path,file_path,note,labels"})} if ids else {}
     analyses = {a["reference_id"]: a for a in db.select("analyses", {"reference_id": in_list(ids), **mine, "select": "*"})} if ids else {}
     groups = [(name, [m for m in members if m in refs]) for name, members in groups]
     return Board(id=board_id, name=board["name"], refs=refs, analyses=analyses, short=short_ids(list(refs)), groups=groups, focus=focus)
@@ -439,7 +441,11 @@ def load_images(db: Supabase, board: Board) -> list[Image.Image]:
     images = []
     for ref_id in key_images(board):
         try:
-            img = Image.open(io.BytesIO(db.download(board.refs[ref_id]["thumbnail_path"])))
+            ref = board.refs[ref_id]
+            path = owned_path(ref.get("thumbnail_path"), ref.get("user_id", ""))  # user-writable column
+            if not path:
+                continue
+            img = Image.open(io.BytesIO(db.download(path)))
             img.load()
             images.append(img)
         except Exception:  # noqa: BLE001 - a missing image just means one fewer key reference
@@ -570,7 +576,7 @@ def clean_body(text: str, board: Board, title: str | None = None) -> str:
     """Model output for one section: drop a repeated section heading, demote any `#`/`##` headings so
     they can't split the document, drop citations to ids that aren't on this board, and drop active
     HTML (script, iframe, style…) a prompt-injected reference could have talked the model into."""
-    text = ACTIVE_HTML.sub("", text)
+    text = SHELL_PIPE.sub("", ACTIVE_HTML.sub("", text))
     lead = LEADING_HEADING.match(text)
     if lead:
         level, words = re.match(r"\s*(#+) (?:\d+\.\s*)?(.*)", lead.group(0)).groups()

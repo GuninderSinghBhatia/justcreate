@@ -35,12 +35,15 @@ async function refresh(session: ExtensionSession): Promise<ExtensionSession | nu
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: session.refresh_token }),
   });
+  // Someone may have connected (or disconnected) while this was in flight: then that's the session.
+  const stillCurrent = async () => (await getSession())?.refresh_token === session.refresh_token;
   if (res.status === 401) {
-    await setSession(null);
-    return null;
+    if (await stillCurrent()) await setSession(null);
+    return getSession();
   }
   if (!res.ok) throw new Error(`Refresh failed (${res.status})`);
   const body = (await res.json()) as { session: ExtensionSession };
+  if (!(await stillCurrent())) return getSession();
   await setSession(body.session);
   return body.session;
 }

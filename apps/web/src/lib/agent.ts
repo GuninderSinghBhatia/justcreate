@@ -30,12 +30,14 @@ export interface AgentContext {
 
 /** Resolves the bearer token to its owner, or returns a 401 response. */
 export async function agentAuth(request: Request): Promise<AgentContext | NextResponse> {
-  // Per address, before the token is looked at: also slows down guessing.
-  if (!allow(`agent:${clientIp(request)}`, 120)) {
-    return NextResponse.json({ error: "Too many requests. Wait a minute." }, { status: 429, headers: { "retry-after": "60" } });
-  }
+  // Failed attempts are limited per address (slows guessing); working tokens per owner, so one
+  // user's agent can't use up everyone's allowance when callers share an address.
+  const ip = clientIp(request.headers);
+  const tooMany = () => NextResponse.json({ error: "Too many requests. Wait a minute." }, { status: 429, headers: { "retry-after": "60" } });
+  if (!allow(`agent-any:${ip}`, 1200)) return tooMany();
   const token = bearerToken(request);
   if (!token?.startsWith(TOKEN_PREFIX)) {
+    if (!allow(`agent-fail:${ip}`, 60)) return tooMany();
     return NextResponse.json({ error: "Missing or malformed API token (create one in JUSTCREATE → Settings)" }, { status: 401 });
   }
   const db = createAdminClient();
@@ -45,7 +47,11 @@ export async function agentAuth(request: Request): Promise<AgentContext | NextRe
     .eq("token_hash", hashToken(token))
     .is("revoked_at", null)
     .maybeSingle();
-  if (!data) return NextResponse.json({ error: "Invalid or revoked API token" }, { status: 401 });
+  if (!data) {
+    if (!allow(`agent-fail:${ip}`, 60)) return tooMany();
+    return NextResponse.json({ error: "Invalid or revoked API token" }, { status: 401 });
+  }
+  if (!allow(`agent:${data.user_id}`, 300)) return tooMany();
   await db.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
   return { userId: data.user_id, db };
 }

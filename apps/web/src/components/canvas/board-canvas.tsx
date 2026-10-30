@@ -19,7 +19,7 @@ import { cardSize, type BoardItem } from "@justcreate/shared";
 import type { ReferenceView } from "@/lib/references";
 import { uploadImages } from "@/lib/upload";
 import { createDecor, DecorOver, DecorUnder } from "./decor";
-import { REFERENCE_DRAG_TYPE } from "./drag";
+import { droppedReference, endReferenceDrag, REFERENCE_DRAG_TYPE } from "./drag";
 import { Lightbox, type Zoomed } from "./lightbox";
 import { PAPERS, ToolStrip, type ActiveTool, type Paper } from "./tool-strip";
 
@@ -104,7 +104,13 @@ export function BoardCanvas({
   // Saved scene plus any board items it doesn't have yet (captured since the last save).
   const [initialData] = useState(() => {
     const doc = savedDocument as SavedScene | null;
-    const saved = doc?.type === "excalidraw" && Array.isArray(doc.elements) ? doc.elements : [];
+    const onBoard = new Set(items.map((i) => i.reference_id));
+    // An image whose reference left the board (removed in the grid, or deleted) since the scene was
+    // saved stays gone: board_items is the truth for which references are on the board.
+    const saved = (doc?.type === "excalidraw" && Array.isArray(doc.elements) ? doc.elements : []).filter((el) => {
+      const id = referenceIdOf(el);
+      return !id || onBoard.has(id);
+    });
     const present = new Set(saved.map(referenceIdOf));
     const missing = items.filter((i) => !present.has(i.reference_id));
     return {
@@ -198,10 +204,18 @@ export function BoardCanvas({
   const seen = useRef(new Set(items.map((i) => i.reference_id)));
   // References deleted on this canvas: a refresh that raced the save mustn't bring them back.
   const removedHere = useRef(new Set<string>());
-  const save = useCallback(async () => {
+  // One save at a time, so a slow one can't land after a newer one; edits made meanwhile save next.
+  const inFlight = useRef(false);
+  const again = useRef(false);
+  const save = useCallback(async (unloading = false) => {
     if (!api) return;
     window.clearTimeout(timer.current);
     timer.current = undefined;
+    if (inFlight.current && !unloading) {
+      again.current = true;
+      return;
+    }
+    inFlight.current = true;
     onSaveState?.("saving");
     // Images still uploading have no reference yet; they're saved once they do.
     const elements = api.getSceneElements().filter((el) => el.type !== "image" || referenceIdOf(el));
@@ -211,12 +225,15 @@ export function BoardCanvas({
     });
     const present = new Set(placed.map((i) => i.referenceId));
     const removed = [...seen.current].filter((id) => !present.has(id));
+    const body = JSON.stringify({ document: { type: "excalidraw", elements } satisfies SavedScene, items: placed, removed });
     try {
       const res = await fetch(`/api/boards/${boardId}/canvas`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ document: { type: "excalidraw", elements } satisfies SavedScene, items: placed, removed }),
-        keepalive: true,
+        body,
+        // keepalive lets a save outlive the closing tab, but browsers refuse keepalive bodies over
+        // 64 KB outright: only small final saves use it (larger ones are flushed when the tab hides).
+        keepalive: unloading && body.length < 60_000,
       });
       onSaveState?.(res.ok ? "saved" : "error");
       if (!res.ok) return;
@@ -230,17 +247,36 @@ export function BoardCanvas({
       if (result.added || result.removed) onMembershipChange?.();
     } catch {
       onSaveState?.("error");
+    } finally {
+      inFlight.current = false;
+      if (again.current) {
+        again.current = false;
+        void saveNext.current?.();
+      }
     }
   }, [api, boardId, onSaveState, onMembershipChange]);
+  // The save queued behind this one runs through a ref: a callback can't name itself.
+  const saveNext = useRef<(() => Promise<void>) | null>(null);
+  useEffect(() => {
+    saveNext.current = () => save();
+  }, [save]);
 
   useEffect(() => {
-    const flush = () => {
-      if (timer.current) void save();
+    const pending = () => timer.current !== undefined || again.current;
+    // Hiding the tab (switching away, closing it on mobile) is the reliable moment to save: the
+    // page can still finish a normal request. beforeunload is the last chance, keepalive-sized.
+    const onHide = () => {
+      if (document.visibilityState === "hidden" && pending()) void save();
     };
-    window.addEventListener("beforeunload", flush);
+    const onUnload = () => {
+      if (pending()) void save(true);
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("beforeunload", onUnload);
     return () => {
-      window.removeEventListener("beforeunload", flush);
-      flush();
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("beforeunload", onUnload);
+      if (pending()) void save();
     };
   }, [save]);
 
@@ -389,12 +425,14 @@ export function BoardCanvas({
 
   // ---------- drop from the library sidebar ----------
   const onDrop = (e: React.DragEvent) => {
-    const raw = e.dataTransfer.getData(REFERENCE_DRAG_TYPE);
-    if (!raw || !api) return;
+    if (!e.dataTransfer.types.includes(REFERENCE_DRAG_TYPE) || !api) return;
     e.preventDefault();
     e.stopPropagation(); // keep Excalidraw from treating it as a text drop
+    const reference = droppedReference(e);
+    endReferenceDrag();
+    if (!reference) return; // dragged from another window: not ours to trust
     const point = viewportCoordsToSceneCoords({ clientX: e.clientX, clientY: e.clientY }, api.getAppState());
-    place(api, JSON.parse(raw) as ReferenceView, point.x, point.y);
+    place(api, reference, point.x, point.y);
   };
 
   return (

@@ -1,5 +1,5 @@
 import type { CapturePayload, CaptureResponse } from '@justcreate/shared';
-import { getAccessToken } from './auth';
+import { getAccessToken, getSession } from './auth';
 import { APP_URL } from './config';
 import { dequeue, enqueue, listQueue } from './queue';
 
@@ -54,7 +54,8 @@ export async function upload(payload: CapturePayload, file?: Blob, thumbnail?: B
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     if (!(err instanceof RetryableError)) return { status: 'failed', reason };
-    await enqueue({ id: crypto.randomUUID(), payload, file, thumbnail, attempts: 0, createdAt: Date.now() });
+    const owner = (await getSession())?.email;
+    await enqueue({ id: crypto.randomUUID(), payload, file, thumbnail, attempts: 0, createdAt: Date.now(), owner });
     return { status: 'queued', reason };
   }
 }
@@ -63,7 +64,10 @@ const MAX_ATTEMPTS = 50;
 
 /** Retries queued captures oldest-first. Returns how many were saved. */
 export async function flushQueue(): Promise<number> {
-  const items = (await listQueue()).sort((a, b) => a.createdAt - b.createdAt);
+  // Only the connected account's captures: on a shared browser, someone else's offline captures
+  // wait for them to connect again instead of landing in this library.
+  const me = (await getSession())?.email;
+  const items = (await listQueue()).filter((i) => !i.owner || i.owner === me).sort((a, b) => a.createdAt - b.createdAt);
   let saved = 0;
   for (const item of items) {
     try {

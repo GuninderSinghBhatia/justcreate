@@ -12,13 +12,15 @@ export const MONTHLY_GENERATIONS = Number(process.env.AI_MONTHLY_GENERATIONS) ||
 export async function generationsThisMonth(supabase: SupabaseClient, userId: string) {
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("jobs")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("kind", "spec")
     .neq("status", "failed")
     .gte("created_at", monthStart);
+  // Fail closed: if the count can't be read, no paid generation is queued on a guess of zero.
+  if (error) throw new Error(`Couldn't check this month's usage: ${error.message}`);
   const used = count ?? 0;
   return { used, limit: MONTHLY_GENERATIONS, left: Math.max(0, MONTHLY_GENERATIONS - used) };
 }

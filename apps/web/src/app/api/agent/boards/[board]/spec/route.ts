@@ -8,11 +8,15 @@ import { agentAuth, findBoard } from "@/lib/agent";
 export async function GET(request: Request, { params }: RouteContext<"/api/agent/boards/[board]/spec">) {
   const ctx = await agentAuth(request);
   if (ctx instanceof NextResponse) return ctx;
-  const found = await findBoard(ctx, decodeURIComponent((await params).board));
+  // Next.js has already decoded the segment (a second decode breaks names like "50% off").
+  const found = await findBoard(ctx, (await params).board);
   if ("error" in found) return NextResponse.json({ error: found.error }, { status: 404 });
 
   const search = new URL(request.url).searchParams;
   const version = search.get("version");
+  if (version !== null && !/^[1-9]\d{0,8}$/.test(version)) {
+    return NextResponse.json({ error: "version must be a positive whole number" }, { status: 400 });
+  }
   const wanted = search.get("cluster");
   let cluster: { id: string; name: string } | null = null;
   if (wanted) {

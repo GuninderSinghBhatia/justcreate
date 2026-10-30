@@ -6,15 +6,19 @@ import { isYouTube } from '../../lib/adapters/youtube';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ask = <T>(message: BackgroundRequest) => browser.runtime.sendMessage(message) as Promise<T>;
 
-async function init() {
-  $<HTMLAnchorElement>('board').href = `${APP_URL}/board`;
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+async function render() {
   const status = await ask<StatusResponse>({ kind: 'status' });
-
   $('disconnected').hidden = status.connected;
   $('connected').hidden = !status.connected;
   $('email').textContent = status.email ?? '';
   renderQueue(status.queued);
+}
+
+/** Runs once per popup: buttons get one listener each (re-adding them would save twice per click). */
+async function init() {
+  $<HTMLAnchorElement>('board').href = `${APP_URL}/board`;
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  await render();
 
 
   const url = tab?.url ?? '';
@@ -31,7 +35,7 @@ async function init() {
 
   $('disconnect').addEventListener('click', async () => {
     await ask({ kind: 'disconnect' });
-    await init();
+    await render();
   });
 
   $('retry').addEventListener('click', async () => {

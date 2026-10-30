@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, createAnonClient, createClient } from "@/lib/supabase/server";
 import { toExtensionSession } from "@/lib/extension-session";
+import { allow } from "@/lib/rate-limit";
 
 /**
  * Mints a separate session for the browser extension, for the user signed in on the web.
@@ -12,6 +13,10 @@ export async function POST() {
   const { data: userData } = await supabase.auth.getUser();
   const email = userData.user?.email;
   if (!email) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  // Each call mints a new session (and replaces any pending sign-in link): connecting is rare.
+  if (!allow(`ext-session:${userData.user!.id}`, 5)) {
+    return NextResponse.json({ error: "Too many connection attempts. Wait a minute." }, { status: 429 });
+  }
 
   // generateLink does not send an email; it only returns the one-time token.
   const { data: link, error: linkError } = await createAdminClient().auth.admin.generateLink({
@@ -19,7 +24,8 @@ export async function POST() {
     email,
   });
   if (linkError || !link.properties?.hashed_token) {
-    return NextResponse.json({ error: linkError?.message ?? "Could not create session" }, { status: 500 });
+    console.error("extension session:", linkError?.message);
+    return NextResponse.json({ error: "Could not create session" }, { status: 500 });
   }
 
   const { data, error } = await createAnonClient().auth.verifyOtp({
@@ -27,7 +33,8 @@ export async function POST() {
     type: "email",
   });
   if (error || !data.session) {
-    return NextResponse.json({ error: error?.message ?? "Could not create session" }, { status: 500 });
+    console.error("extension session:", error?.message);
+    return NextResponse.json({ error: "Could not create session" }, { status: 500 });
   }
 
   return NextResponse.json({ session: toExtensionSession(data.session) });

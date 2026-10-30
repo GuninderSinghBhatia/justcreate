@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { homeBoard } from "@/lib/boards";
-import { signedUrls } from "@/lib/references";
+import { signedUrls, webLink } from "@/lib/references";
 import { requireUser } from "@/lib/require-user";
 import { SpecEditor, type CitedRef } from "./spec-editor";
 
@@ -65,7 +65,7 @@ export default async function SpecPage({ searchParams }: PageProps<"/board/spec"
   // cluster's document picks its short ids among its own references, so every prefix length maps.
   const refs: Record<string, CitedRef> = {};
   for (const r of references) {
-    const cited = { title: r.title ?? "Untitled", url: r.source_url ?? r.page_url, thumb: r.thumbnail_path ? (thumbs.get(r.thumbnail_path) ?? null) : null };
+    const cited = { title: r.title ?? "Untitled", url: webLink(r.source_url) ?? webLink(r.page_url), thumb: r.thumbnail_path ? (thumbs.get(r.thumbnail_path) ?? null) : null };
     const hex = r.id.replaceAll("-", "");
     for (let n = 6; n <= 12; n++) refs[hex.slice(0, n)] ??= cited;
   }

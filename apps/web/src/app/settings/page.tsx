@@ -20,7 +20,8 @@ export default async function SettingsPage() {
     generationsThisMonth(supabase, user.id),
     headers(),
   ]);
-  const appUrl = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? "localhost:3100"}`;
+  // The address agents send their token to: the configured site, never one taken from the request.
+  const appUrl = process.env.SITE_URL ?? `http://${h.get("host") ?? "localhost:3100"}`;
   // The MCP server lives next to the web app in the monorepo (apps/mcp).
   const mcpPath = path.resolve(process.cwd(), "..", "mcp", "dist", "index.js");
 

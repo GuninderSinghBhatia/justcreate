@@ -8,6 +8,8 @@ export interface QueuedCapture {
   thumbnail?: Blob;
   attempts: number;
   createdAt: number;
+  /** Account (email) that made the capture: it is only ever uploaded into that account. */
+  owner?: string;
 }
 
 const DB = 'justcreate';

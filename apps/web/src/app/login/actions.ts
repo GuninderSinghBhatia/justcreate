@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { allow } from "@/lib/rate-limit";
+import { allow, clientIp } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = { status: "idle" | "sent" | "error"; message?: string };
@@ -10,7 +10,7 @@ export async function sendMagicLink(_prev: LoginState, formData: FormData): Prom
   const email = String(formData.get("email") ?? "").trim();
   const next = safeNext(String(formData.get("next") ?? "/board"));
   if (!email) return { status: "error", message: "Enter your email." };
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0].trim() || "local";
+  const ip = clientIp(await headers());
   if (!allow(`magic-link:${ip}`, 5) || !allow(`magic-link:${email.toLowerCase()}`, 3)) {
     return { status: "error", message: "Too many sign-in links requested. Wait a minute and try again." };
   }

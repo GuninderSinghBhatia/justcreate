@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/require-user";
 
 export async function renameBoard(name: string) {
   const { supabase, user } = await requireUser();
-  const trimmed = name.trim();
+  const trimmed = typeof name === "string" ? name.trim().slice(0, 120) : "";
   if (!trimmed) return;
   const board = await homeBoard(supabase, user.id);
   const { error } = await supabase.from("boards").update({ name: trimmed }).eq("id", board.id);

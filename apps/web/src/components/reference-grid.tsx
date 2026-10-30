@@ -39,6 +39,7 @@ export function ReferenceGrid({
         router.refresh();
       } catch (err) {
         setUploading(err instanceof Error ? err.message : "Upload failed");
+        if ((err as { saved?: unknown[] }).saved?.length) router.refresh(); // some made it
       }
       window.setTimeout(() => setUploading(null), 3000);
     },

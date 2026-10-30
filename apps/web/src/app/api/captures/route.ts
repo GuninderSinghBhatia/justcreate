@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { CapturePayload, CaptureResponse } from "@justcreate/shared";
-import { CaptureError, MAX_BYTES, saveCapture } from "@/lib/capture";
-import { allow } from "@/lib/rate-limit";
+import { CaptureError, MAX_BYTES, parsePayload, saveCapture } from "@/lib/capture";
+import { allow, enter } from "@/lib/rate-limit";
 import { requestUser } from "@/lib/request-user";
 
 function json(body: CaptureResponse, status = 200) {
@@ -24,16 +24,27 @@ export async function POST(request: Request) {
   if (!length) return json({ error: "Content-Length required" }, 411);
   if (length > 2 * MAX_BYTES + 1024 * 1024) return json({ error: "File larger than 50 MB" }, 413);
 
-  const form = await request.formData().catch(() => null);
-  if (!form) return json({ error: "Expected multipart/form-data" }, 400);
-
-  let payload: CapturePayload;
+  // Each request holds its files in memory: a few at a time per user.
+  const leave = enter(`captures:${auth.user.id}`, 3);
+  if (!leave) return json({ error: "Too many captures at once. Wait a moment." }, 429);
   try {
-    payload = JSON.parse(String(form.get("meta") ?? ""));
-  } catch {
-    return json({ error: "meta must be JSON" }, 400);
-  }
+    const form = await request.formData().catch(() => null);
+    if (!form) return json({ error: "Expected multipart/form-data" }, 400);
 
+    let payload: CapturePayload | null;
+    try {
+      payload = parsePayload(JSON.parse(String(form.get("meta") ?? "")));
+    } catch {
+      payload = null;
+    }
+    if (!payload) return json({ error: "meta must be a capture object (JSON)" }, 400);
+    return await save(auth, payload, form);
+  } finally {
+    leave();
+  }
+}
+
+async function save(auth: NonNullable<Awaited<ReturnType<typeof requestUser>>>, payload: CapturePayload, form: FormData) {
   const blob = (name: string) => (form.get(name) instanceof Blob ? (form.get(name) as Blob) : null);
   try {
     const reference = await saveCapture(auth.supabase, auth.user.id, payload, {

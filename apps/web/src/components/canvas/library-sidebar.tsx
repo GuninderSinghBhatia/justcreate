@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReferenceView } from "@/lib/references";
-import { REFERENCE_DRAG_TYPE } from "./drag";
+import { endReferenceDrag, startReferenceDrag } from "./drag";
 
 /** Searchable list of saved references; drag one onto the canvas to place it. */
 export function LibrarySidebar({ onBoard, onAdd }: { onBoard: Set<string>; onAdd: (r: ReferenceView) => void }) {
@@ -58,10 +58,8 @@ export function LibrarySidebar({ onBoard, onAdd }: { onBoard: Set<string>; onAdd
           <li
             key={r.id}
             draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData(REFERENCE_DRAG_TYPE, JSON.stringify(r));
-              e.dataTransfer.effectAllowed = "copy";
-            }}
+            onDragStart={(e) => startReferenceDrag(e, r)}
+            onDragEnd={endReferenceDrag}
             className="group mb-2 flex cursor-grab items-center gap-2 rounded-md border border-transparent p-1 hover:border-foreground/15"
           >
             <span className="h-12 w-12 shrink-0 overflow-hidden rounded bg-foreground/5">

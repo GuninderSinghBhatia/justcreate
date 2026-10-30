@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
@@ -14,7 +15,7 @@ from PIL import Image
 from . import vision
 from .cluster import filter_known, similarity, style_groups, suggest_from_similarity
 from .config import Settings
-from .db import Supabase, in_list
+from .db import Supabase, in_list, owned_path
 from .embed import get_clip
 from .naming import name_clusters
 from .palette import extract_palette
@@ -27,6 +28,9 @@ THUMB_MAX = 640
 THUMB_SKIP_BYTES = 150_000  # files this small are already fine as card images
 FIRST_CLUSTER_AT = 6  # a board gets its first clustering once this many references are analysed
 _style_matrix: tuple[str, np.ndarray] | None = None  # (CLIP version, style prompt embeddings), built once
+HEARTBEAT_SECONDS = 120  # a running job touches its row this often; claim_jobs reclaims rows quiet for 10 min
+REQUEUE_BACKOFF = timedelta(days=1)  # a fallback-tagged reference gets another analysis at most this often
+Image.MAX_IMAGE_PIXELS = 60_000_000  # bigger images (≈ 8000×7500) raise on decode instead of exhausting memory
 
 
 class Defer(Exception):
@@ -44,18 +48,43 @@ class Worker:
 
     # ---------- loop ----------
 
-    def run_due(self, batch: int = 4) -> int:
-        """Claims and runs due jobs until none are left. Returns how many ran."""
+    def run_due(self) -> int:
+        """Claims and runs due jobs one at a time until none are left. Returns how many ran. One
+        at a time: a claimed job that waits behind others would look abandoned to claim_jobs."""
         ran = 0
         while True:
-            jobs = self.db.rpc("claim_jobs", {"n": batch})
+            jobs = self.db.rpc("claim_jobs", {"n": 1})
             if not jobs:
                 return ran
             for job in jobs:
                 self._run(job)
                 ran += 1
 
+    def _finish(self, job: dict, values: dict) -> None:
+        """Records a job's outcome, only while the row is still this run's: if the job was reclaimed
+        meanwhile (it looked abandoned), the newer run owns the row."""
+        self.db.update("jobs", {"id": f"eq.{job['id']}", "status": "eq.running", "attempts": f"eq.{job['attempts']}"},
+                       {**values, "updated_at": _now()})
+
     def _run(self, job: dict) -> None:
+        stop = threading.Event()
+
+        def heartbeat() -> None:
+            while not stop.wait(HEARTBEAT_SECONDS):
+                try:
+                    self.db.update("jobs", {"id": f"eq.{job['id']}", "status": "eq.running", "attempts": f"eq.{job['attempts']}"},
+                                   {"updated_at": _now()})
+                except Exception:  # noqa: BLE001 - a missed beat only risks a duplicate run
+                    log.warning("heartbeat for job %s failed", job["id"])
+
+        beat = threading.Thread(target=heartbeat, daemon=True)
+        beat.start()
+        try:
+            self._run_once(job)
+        finally:
+            stop.set()
+
+    def _run_once(self, job: dict) -> None:
         try:
             if job["kind"] == "analyze":
                 self.analyze(job["user_id"], job["reference_id"])
@@ -64,26 +93,24 @@ class Worker:
             elif job["kind"] == "spec":
                 self._wait_for_analyses(job["board_id"])
                 run_spec_job(self.settings, self.db, job["user_id"], job["board_id"], job.get("params") or {})
-            self.db.update("jobs", {"id": f"eq.{job['id']}"}, {"status": "done", "error": None, "updated_at": _now()})
+            self._finish(job, {"status": "done", "error": None})
             log.info("job %s %s done", job["kind"], job["id"])
         except Defer as wait:
             # Not a failure: put it back without using up an attempt.
-            self.db.update("jobs", {"id": f"eq.{job['id']}"}, {
+            self._finish(job, {
                 "status": "pending",
                 "attempts": max(0, job["attempts"] - 1),
                 "run_after": (datetime.now(timezone.utc) + timedelta(seconds=wait.seconds)).isoformat(),
-                "updated_at": _now(),
             })
             log.info("job %s %s deferred: %s", job["kind"], job["id"], wait)
         except Exception as err:  # noqa: BLE001 - one bad job must not stop the worker
             log.exception("job %s %s failed", job["kind"], job["id"])
             final = job["attempts"] >= self.settings.max_attempts
             retry_at = datetime.now(timezone.utc) + timedelta(minutes=2 ** job["attempts"])
-            self.db.update("jobs", {"id": f"eq.{job['id']}"}, {
+            self._finish(job, {
                 "status": "failed" if final else "pending",
                 "error": str(err)[:1000],
                 "run_after": retry_at.isoformat(),
-                "updated_at": _now(),
             })
 
     # ---------- analyze ----------
@@ -98,7 +125,8 @@ class Worker:
         image = None
         image_hash = None
         raw = None
-        path = ref.get("thumbnail_path") or ref.get("file_path")
+        # Paths in the row are user-writable: only this user's own files are read with the secret key.
+        path = owned_path(ref.get("thumbnail_path"), user_id) or owned_path(ref.get("file_path"), user_id)
         if path:
             raw = self.db.download(path)
             image_hash = hashlib.sha256(raw).hexdigest()
@@ -220,7 +248,13 @@ class Worker:
         if not self.settings.provider:
             return 0
         queued = 0
+        # Each reference at most once a day: some never get past the model (it always fails on them),
+        # and every try costs quota.
+        since = (datetime.now(timezone.utc) - REQUEUE_BACKOFF).isoformat()
+        tried = {j["reference_id"] for j in self.db.select("jobs", {"kind": "eq.analyze", "created_at": f"gte.{since}", "select": "reference_id"})}
         for row in self.db.select("analyses", {"model_version": f"eq.{vision.HEURISTIC_VERSION}", "select": "reference_id,user_id"}):
+            if row["reference_id"] in tried:
+                continue
             try:
                 self.db.insert("jobs", {"user_id": row["user_id"], "kind": "analyze", "reference_id": row["reference_id"]})
                 queued += 1

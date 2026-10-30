@@ -59,6 +59,7 @@ export async function saveCapture(
   }
 
   const uploaded: string[] = [];
+  let saved: string | null = null;
   const put = async (blob: Blob | null | undefined) => {
     if (!blob) return null;
     const path = `${userId}/${crypto.randomUUID()}.${EXTENSIONS[blob.type]}`;
@@ -95,6 +96,7 @@ export async function saveCapture(
       throw new CaptureError("Save failed. Try again.", 500);
     }
     const reference = data as Reference;
+    saved = reference.id;
 
     // One board per user: every capture lands on it (older extensions still send a boardId).
     const board = await homeBoard(supabase, userId);
@@ -103,9 +105,43 @@ export async function saveCapture(
     await enqueueJob(userId, "analyze", { referenceId: reference.id }).catch((e) => console.error(e));
     return reference;
   } catch (err) {
+    // Nothing half-saved: no row pointing at removed files, no files without a row.
+    if (saved) await supabase.from("references").delete().eq("id", saved);
     if (uploaded.length) await supabase.storage.from(CAPTURES_BUCKET).remove(uploaded);
     throw err;
   }
+}
+
+const METADATA_MAX = 16 * 1024;
+const text = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : undefined);
+
+/**
+ * The capture as the server will use it: known fields of the right type only, metadata kept small
+ * and its image size finite (it sizes the card on the board). Null when it isn't a capture.
+ */
+export function parsePayload(raw: unknown): CapturePayload | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.type !== "string" || !REFERENCE_TYPES.includes(r.type as CapturePayload["type"])) return null;
+  let metadata: CaptureMetadata = {};
+  if (typeof r.metadata === "object" && r.metadata !== null && !Array.isArray(r.metadata)) {
+    if (JSON.stringify(r.metadata).length > METADATA_MAX) return null;
+    metadata = { ...(r.metadata as CaptureMetadata) };
+    delete metadata.oembed; // set by the server only
+    for (const key of ["width", "height"] as const) {
+      const n = Number(metadata[key]);
+      if (metadata[key] !== undefined && !(Number.isFinite(n) && n > 0 && n < 100_000)) delete metadata[key];
+    }
+  }
+  return {
+    type: r.type as CapturePayload["type"],
+    sourceUrl: text(r.sourceUrl, 4000),
+    pageUrl: text(r.pageUrl, 4000),
+    title: text(r.title, 500),
+    note: text(r.note, 5000),
+    remoteFileUrl: text(r.remoteFileUrl, 4000),
+    metadata,
+  };
 }
 
 /** Only http(s) links are kept: they end up as clickable links in the app and in design.md. */
@@ -133,9 +169,15 @@ async function asImage(blob: Blob): Promise<Blob> {
  * addresses are fetched (see safe-fetch).
  */
 async function download(url: string): Promise<Blob | null> {
+  // One budget across all the candidate copies (some CDNs offer several): 30 s and 100 MB in all.
+  const deadline = Date.now() + 30_000;
+  let budget = 2 * MAX_BYTES;
   for (const candidate of imageUrlCandidates(url)) {
+    const timeoutMs = deadline - Date.now();
+    if (timeoutMs < 1000 || budget <= 0) return null;
     try {
-      const res = await fetchPublic(candidate, { maxBytes: MAX_BYTES });
+      const res = await fetchPublic(candidate, { maxBytes: Math.min(MAX_BYTES, budget), timeoutMs });
+      budget -= res.body.length;
       if (res.status < 200 || res.status >= 300) continue;
       const type = sniffImage(res.body.subarray(0, 16));
       if (type) return new Blob([new Uint8Array(res.body)], { type });

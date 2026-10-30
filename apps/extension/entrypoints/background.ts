@@ -84,7 +84,7 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: BackgroundRequest, sender, sendResponse) => {
     // A session is only taken from our own content script on the app's /connect page: content
     // scripts run inside web pages, so any other sender could plant a session of its choosing.
-    if (message.kind === 'connected' && !fromConnectPage(sender)) {
+    if (message.kind === 'connected' ? !fromConnectPage(sender) : !fromExtensionPage(sender)) {
       sendResponse({ error: 'Not allowed' });
       return false;
     }
@@ -97,6 +97,11 @@ export default defineBackground(() => {
     Object.assign(globalThis, { __justcreate: { saveImage, saveDetected, saveScreenshot, retryQueue } });
   }
 });
+
+/** The popup and other pages of this extension (not content scripts, which run inside web pages). */
+function fromExtensionPage(sender: { id?: string; tab?: unknown; url?: string }) {
+  return sender.id === browser.runtime.id && !sender.tab && Boolean(sender.url?.startsWith(browser.runtime.getURL('/')));
+}
 
 function fromConnectPage(sender: { id?: string; url?: string }) {
   if (sender.id !== browser.runtime.id || !sender.url) return false;
@@ -252,6 +257,8 @@ function isLocalHost(h: string) {
     /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
     /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) ||
     h === '::1' ||
+    h === '::' ||
+    /^::ffff:/i.test(h) ||
     /^f[cd][0-9a-f]{2}:/i.test(h) ||
     /^fe80:/i.test(h)
   );

@@ -19,9 +19,12 @@ export async function generateSpec(boardId: string, clusterIds: string[], cluste
   return userFacing(async () => {
     const { supabase } = await requireUser();
     await ownBoard(supabase, boardId);
-    if (clusterId) await keepCluster(supabase, boardId, clusterId);
+    if (clusterId) await ownCluster(supabase, boardId, clusterId);
     const focus = Array.isArray(clusterIds) ? clusterIds.filter((id) => typeof id === "string").slice(0, 50) : [];
-    return queueSpec(boardId, clusterId ? { cluster_id: clusterId } : { cluster_ids: focus });
+    const result = await queueSpec(boardId, clusterId ? { cluster_id: clusterId } : { cluster_ids: focus });
+    // Only once the job is really queued: a refused request leaves the cluster as it was.
+    if (clusterId) await keepCluster(supabase, clusterId);
+    return result;
   });
 }
 
@@ -42,8 +45,7 @@ async function ownCluster(supabase: SupabaseClient, boardId: string, clusterId: 
 }
 
 /** A cluster with its own design.md is accepted: re-clustering replaces suggestions, and would take it away. */
-async function keepCluster(supabase: SupabaseClient, boardId: string, clusterId: string) {
-  await ownCluster(supabase, boardId, clusterId);
+async function keepCluster(supabase: SupabaseClient, clusterId: string) {
   must(await supabase.from("clusters").update({ status: "accepted" }).eq("id", clusterId).eq("status", "suggested"));
   revalidatePath("/board");
 }

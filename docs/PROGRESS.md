@@ -102,7 +102,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Old leaked secret key deleted (you)
 - [x] Decision: run locally for now (`npm run dev` starts web + worker). `render.yaml` is ready for when the worker should run without your laptop (needs a paid ~2 GB instance)
 - [x] Migration 0007 applied (you); verified: token rows server-only (revoked tokens stay revoked), AI design.md versions worker-only, one board per user (5 parallel first captures → 1 board)
-- [ ] Apply migration 0008 (reference file paths must be in the owner's folder; users edit only title/note/description/labels; crash-looping jobs fail after 5 tries) in the Supabase SQL editor (you)
+- [x] Migration 0008 applied (you); verified: a reference can't point at another user's file, users can still edit titles, review tests 18/18
 - [ ] Before deploying: set SITE_URL to the public address; Supabase Auth redirect allow-list = exact callback URLs only
 - [ ] 60-second demo video for the landing page; launch posts
 - [ ] Optional: publish `@justcreate/mcp` to npm so setup is `npx -y @justcreate/mcp`

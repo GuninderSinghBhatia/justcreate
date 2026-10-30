@@ -38,7 +38,7 @@ export async function agentAuth(request: Request): Promise<AgentContext | NextRe
   const token = bearerToken(request);
   if (!token?.startsWith(TOKEN_PREFIX)) {
     if (!allow(`agent-fail:${ip}`, 60)) return tooMany();
-    return NextResponse.json({ error: "Missing or malformed API token (create one in JUSTCREATE → Settings)" }, { status: 401 });
+    return NextResponse.json({ error: "Missing or malformed API token (create one in JustCreate → Settings)" }, { status: 401 });
   }
   const db = createAdminClient();
   const { data } = await db

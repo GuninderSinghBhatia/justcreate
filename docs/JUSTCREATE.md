@@ -1,8 +1,8 @@
-# JUSTCREATE — AI-Powered Design Inspiration and Curation Platform
+# JustCreate — AI-Powered Design Inspiration and Curation Platform
 
 ## Overview
 
-JUSTCREATE is an AI-powered visual inspiration platform that allows users to collect, organize, analyze, and transform design inspiration from anywhere on the internet into actionable design specifications.
+JustCreate is an AI-powered visual inspiration platform that allows users to collect, organize, analyze, and transform design inspiration from anywhere on the internet into actionable design specifications.
 
 The goal is to bridge the gap between finding something visually inspiring and actually building something inspired by it. Instead of saving random images, videos, screenshots, and websites across different platforms, users can bring everything into one centralized workspace where AI organizes their references and helps turn their creative vision into something they can implement.
 
@@ -10,11 +10,11 @@ The goal is to bridge the gap between finding something visually inspiring and a
 
 ## 1. Browser Extension for Capturing Inspiration
 
-JUSTCREATE will provide a browser extension that allows users to save inspiration from virtually any website with minimal effort.
+JustCreate will provide a browser extension that allows users to save inspiration from virtually any website with minimal effort.
 
 Users should be able to:
 
-- Right-click any image and save it directly to their JUSTCREATE dashboard.
+- Right-click any image and save it directly to their JustCreate dashboard.
 - Capture screenshots of entire pages, visible areas, or selected regions with a single click.
 - Save YouTube videos as references, preserving their titles, thumbnails, URLs, and optional timestamps.
 - Save inspiring X (Twitter) posts and other social media content.
@@ -46,11 +46,11 @@ The interface should feel like a combination of a visual moodboard, a personal d
 
 ## 3. AI-Powered Automatic Clustering
 
-One of JUSTCREATE's core features is its ability to automatically analyze saved references and organize them into meaningful visual clusters.
+One of JustCreate's core features is its ability to automatically analyze saved references and organize them into meaningful visual clusters.
 
 The AI should analyze the visual characteristics, content, and context of each reference to identify similarities and relationships between them, regardless of their original format or source.
 
-For example, if a user saves several futuristic websites, cyberpunk interfaces, neon color palettes, dark dashboards, and sci-fi animations, JUSTCREATE should recognize relevant similarities and suggest clusters such as:
+For example, if a user saves several futuristic websites, cyberpunk interfaces, neon color palettes, dark dashboards, and sci-fi animations, JustCreate should recognize relevant similarities and suggest clusters such as:
 
 - Cyberpunk Design
 - Futuristic Interfaces
@@ -67,9 +67,9 @@ Users should be able to accept, reject, rename, merge, or modify AI-generated cl
 
 ## 4. AI-Generated Design Specification
 
-The most important feature of JUSTCREATE is its ability to transform a curated collection of references into a structured `design.md` file.
+The most important feature of JustCreate is its ability to transform a curated collection of references into a structured `design.md` file.
 
-Once a user has collected enough inspiration for a project, they should be able to ask JUSTCREATE to analyze the board and generate a comprehensive Markdown document describing the visual direction and design principles represented by those references.
+Once a user has collected enough inspiration for a project, they should be able to ask JustCreate to analyze the board and generate a comprehensive Markdown document describing the visual direction and design principles represented by those references.
 
 The generated design specification should include:
 
@@ -94,13 +94,13 @@ Users should be able to preview, edit, regenerate, and download the generated Ma
 
 ## 5. Integration with AI Coding Agents
 
-JUSTCREATE should help users move directly from visual inspiration to implementation.
+JustCreate should help users move directly from visual inspiration to implementation.
 
 The generated `design.md` should be compatible with AI coding tools and agents such as Claude Code, Cursor, and other tools that can consume project documentation.
 
 Initially, users should be able to download the file and add it to their coding project's context manually.
 
-In the future, JUSTCREATE could offer direct integrations or an agent-accessible interface that allows authorized coding agents to retrieve the relevant design specification and associated references.
+In the future, JustCreate could offer direct integrations or an agent-accessible interface that allows authorized coding agents to retrieve the relevant design specification and associated references.
 
 This would allow a user to collect inspiration, generate a design specification, and then ask their coding agent to build a website or application based on the collected design principles.
 
@@ -110,7 +110,7 @@ The goal is not necessarily to copy an existing design exactly, but to help user
 
 ## 6. User Experience and Product Philosophy
 
-JUSTCREATE should prioritize speed, simplicity, and creative freedom.
+JustCreate should prioritize speed, simplicity, and creative freedom.
 
 The user should be able to capture inspiration without interrupting their browsing experience, return to their workspace later, and immediately understand the ideas they have collected.
 
@@ -139,13 +139,13 @@ The initial target audience includes:
 
 These users frequently encounter inspiring designs online but struggle to organize their references and translate them into clear implementation requirements.
 
-JUSTCREATE aims to solve that problem.
+JustCreate aims to solve that problem.
 
 ---
 
 ## 8. Core Product Vision
 
-JUSTCREATE is more than a bookmarking tool or a traditional inspiration board.
+JustCreate is more than a bookmarking tool or a traditional inspiration board.
 
 It is a personal visual intelligence workspace that transforms scattered inspiration from across the internet into organized creative knowledge and actionable design specifications.
 

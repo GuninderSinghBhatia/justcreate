@@ -1,4 +1,4 @@
-# JUSTCREATE — Launch checklist
+# JustCreate — Launch checklist
 
 Everything here needs your accounts. Do it in order: the Chrome Web Store needs the live privacy policy URL, and the extension build needs the production web URL.
 
@@ -39,12 +39,12 @@ Bump `version` in `apps/extension/package.json` for every upload.
 
 Developer account: one-time $5 fee at the Chrome Web Store developer dashboard.
 
-**Name:** JUSTCREATE
+**Name:** JustCreate
 
-**Short description (≤132 chars):** Save images, screenshots, YouTube videos, X posts and pages to your JUSTCREATE boards in two clicks.
+**Short description (≤132 chars):** Save images, screenshots, YouTube videos, X posts and pages to your JustCreate boards in two clicks.
 
 **Description:**
-> JUSTCREATE collects design inspiration from anywhere on the web and turns it into a design.md your coding agent can build from.
+> JustCreate collects design inspiration from anywhere on the web and turns it into a design.md your coding agent can build from.
 >
 > • Right click any image to save it
 > • Screenshot the visible area, a region you drag, or the full page
@@ -56,17 +56,17 @@ Developer account: one-time $5 fee at the Chrome Web Store developer dashboard.
 
 **Category:** Productivity (or Developer Tools)
 
-**Single purpose:** Save visual references from web pages (images, screenshots, video and post details, page metadata) to the user's JUSTCREATE account.
+**Single purpose:** Save visual references from web pages (images, screenshots, video and post details, page metadata) to the user's JustCreate account.
 
 **Permission justifications:**
 
 | Permission | Why |
 |---|---|
-| `contextMenus` | Adds “Save image/post/video/page to JUSTCREATE” and screenshot items to the right-click menu. |
+| `contextMenus` | Adds “Save image/post/video/page to JustCreate” and screenshot items to the right-click menu. |
 | `storage` | Keeps the user's sign-in session and chosen default board on the device. |
 | `scripting` | Injects the capture script into tabs that were open before the extension was installed, so saving works without a reload. |
 | `alarms` | Retries saves that failed while offline, once a minute. |
-| Host permission `<all_urls>` | The user can save from any site: reading the chosen image, taking screenshots of the current tab, reading page metadata (title, preview image, video or post details) at the moment they save, and sending it to the JUSTCREATE API. |
+| Host permission `<all_urls>` | The user can save from any site: reading the chosen image, taking screenshots of the current tab, reading page metadata (title, preview image, video or post details) at the moment they save, and sending it to the JustCreate API. |
 
 **Remote code:** No. All code ships in the package.
 

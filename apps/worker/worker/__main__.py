@@ -30,7 +30,7 @@ def serve() -> None:
 
     settings = load_settings()
     wake = threading.Event()
-    app = FastAPI(title="JUSTCREATE worker")
+    app = FastAPI(title="JustCreate worker")
 
     @app.get("/health")
     def health() -> dict:

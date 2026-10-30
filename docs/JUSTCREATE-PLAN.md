@@ -1,4 +1,4 @@
-# JUSTCREATE — Build Plan
+# JustCreate — Build Plan
 
 Companion to [JUSTCREATE.md](JUSTCREATE.md). This turns the product spec into phases you can build one at a time. Each phase ends with something that runs and is useful on its own.
 
@@ -55,7 +55,7 @@ A reference can sit on several boards and in several clusters. That's why both u
 - [ ] Supabase project: `users`, `references` tables, a `captures` storage bucket
 - [ ] Email/Google login on the web app
 - [ ] Extension signs in by reusing the web session (open the web login, pass the token back to the extension)
-- [ ] Context menu **"Save to JUSTCREATE"** on images → uploads the image and saves `source_url` + page title
+- [ ] Context menu **"Save to JustCreate"** on images → uploads the image and saves `source_url` + page title
 - [ ] Web page `/library`: a grid of saved images, newest first
 
 **Done when:** you right-click an image on any site and it appears in `/library` within a few seconds.

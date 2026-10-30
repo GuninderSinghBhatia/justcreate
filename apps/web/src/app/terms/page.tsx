@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal-page";
 
-export const metadata: Metadata = { title: "Terms · JUSTCREATE" };
+export const metadata: Metadata = { title: "Terms · JustCreate" };
 
 export default function TermsPage() {
   return (
     <LegalPage title="Terms of use" updated="23 October 2026">
       <h2>The service</h2>
       <p>
-        JUSTCREATE lets you save visual references, organise them into boards, and generate design specifications from them.
+        JustCreate lets you save visual references, organise them into boards, and generate design specifications from them.
         It is in early access: features may change, and the service may be unavailable at times.
       </p>
 
@@ -21,7 +21,7 @@ export default function TermsPage() {
 
       <h2>Acceptable use</h2>
       <ul>
-        <li>Do not use JUSTCREATE to store unlawful content or to infringe others&apos; rights.</li>
+        <li>Do not use JustCreate to store unlawful content or to infringe others&apos; rights.</li>
         <li>Do not attempt to access other accounts or to overload or reverse engineer the service.</li>
         <li>Keep your agent tokens secret; you are responsible for what is done with them.</li>
       </ul>
@@ -39,7 +39,7 @@ export default function TermsPage() {
       </p>
 
       <h2>Ending</h2>
-      <p>You can stop using JUSTCREATE and ask us to delete your account at any time.</p>
+      <p>You can stop using JustCreate and ask us to delete your account at any time.</p>
 
       <h2>Liability</h2>
       <p>The service is provided as is, without warranties, to the extent the law allows.</p>

@@ -75,7 +75,7 @@ export function TokenManager({ tokens, appUrl, mcpPath }: { tokens: TokenRow[]; 
         </p>
         <CopyBox text={cursor} label="Cursor config" />
         <p className="text-foreground/60">
-          Then ask your agent: “Use JUSTCREATE’s design spec for the board <em>My board</em> and build the landing page.”
+          Then ask your agent: “Use JustCreate’s design spec for the board <em>My board</em> and build the landing page.”
           Prefer no setup? Download design.md from the board and add it to your repo.
         </p>
       </div>

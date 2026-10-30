@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JUSTCREATE",
+  title: "JustCreate",
   description: "Save references, build moodboards, get a design.md",
 };
 

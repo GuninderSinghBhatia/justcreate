@@ -109,7 +109,7 @@ function get(url: URL, signal: AbortSignal) {
     const req = client.get(url, {
       signal,
       lookup: publicLookup as unknown as net.LookupFunction,
-      headers: { "user-agent": "Mozilla/5.0 (compatible; JUSTCREATE)", accept: "image/avif,image/webp,image/*,*/*;q=0.8" },
+      headers: { "user-agent": "Mozilla/5.0 (compatible; JustCreate)", accept: "image/avif,image/webp,image/*,*/*;q=0.8" },
     });
     req.on("response", resolve);
     req.on("error", (err: NodeJS.ErrnoException) => reject(err.code === "EBLOCKED" ? new FetchBlocked(err.message) : err));

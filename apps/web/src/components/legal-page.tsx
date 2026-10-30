@@ -7,7 +7,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
     <>
       <header className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
         <Link href="/" className="wordmark text-lg">
-          JUSTCREATE
+          JustCreate
         </Link>
       </header>
       <main className="prose-spec mx-auto w-full max-w-3xl flex-1 px-4 pb-24 text-base sm:px-6">

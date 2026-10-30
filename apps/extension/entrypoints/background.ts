@@ -34,10 +34,10 @@ export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(() => {
     browser.contextMenus.removeAll(() => {
       const add = (props: Browser.contextMenus.CreateProperties) => browser.contextMenus.create(props);
-      add({ id: MENU.image, title: 'Save image to JUSTCREATE', contexts: ['image'] });
-      add({ id: MENU.post, title: 'Save post to JUSTCREATE', contexts: ['page', 'link', 'image', 'video', 'selection'], documentUrlPatterns: X_PATTERNS });
-      add({ id: MENU.video, title: 'Save video to JUSTCREATE', contexts: ['page', 'video', 'link'], documentUrlPatterns: YOUTUBE_PATTERNS });
-      add({ id: MENU.page, title: 'Save page to JUSTCREATE', contexts: ['page'] });
+      add({ id: MENU.image, title: 'Save image to JustCreate', contexts: ['image'] });
+      add({ id: MENU.post, title: 'Save post to JustCreate', contexts: ['page', 'link', 'image', 'video', 'selection'], documentUrlPatterns: X_PATTERNS });
+      add({ id: MENU.video, title: 'Save video to JustCreate', contexts: ['page', 'video', 'link'], documentUrlPatterns: YOUTUBE_PATTERNS });
+      add({ id: MENU.page, title: 'Save page to JustCreate', contexts: ['page'] });
       add({ id: MENU.visible, title: 'Screenshot visible area', contexts: ['page'] });
       add({ id: MENU.region, title: 'Screenshot a region…', contexts: ['page', 'image'] });
       add({ id: MENU.fullpage, title: 'Screenshot full page', contexts: ['page'] });
@@ -298,7 +298,7 @@ async function send<T>(tab: Tab, message: ContentRequest): Promise<T> {
 }
 
 async function finish(tab: Tab, result: UploadResult, label: string) {
-  if (result.status === 'saved') return notify(tab, `${label} to JUSTCREATE`, 'ok');
+  if (result.status === 'saved') return notify(tab, `${label} to JustCreate`, 'ok');
   if (result.status === 'queued') return notify(tab, `Not saved yet: ${result.reason}. Will retry automatically.`, 'warn');
   return notify(tab, `Couldn't save: ${result.reason}`, 'error');
 }

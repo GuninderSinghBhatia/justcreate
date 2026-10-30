@@ -10,7 +10,7 @@ import { createClient, sessionUser } from "@/lib/supabase/server";
 export const instant = false;
 
 export const metadata: Metadata = {
-  title: "JUSTCREATE: turn saved inspiration into a design.md your coding agent can build from",
+  title: "JustCreate: turn saved inspiration into a design.md your coding agent can build from",
   description:
     "Save designs from anywhere with one right click, group them on a canvas, and get a cited design.md with real colours, type and spacing for Claude Code or Cursor.",
 };
@@ -30,7 +30,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         Skip to content
       </a>
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
-        <span className="wordmark text-lg">JUSTCREATE</span>
+        <span className="wordmark text-lg">JustCreate</span>
         <Link href="/login" className={`${button} text-sm`}>
           Sign in
         </Link>
@@ -44,7 +44,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               Turn the designs you save into a spec your agent can build
             </h1>
             <p className="max-w-170 text-lg text-foreground/70 text-pretty">
-              Right click anything you love on the web. JUSTCREATE groups it into style clusters and writes a design.md
+              Right click anything you love on the web. JustCreate groups it into style clusters and writes a design.md
               with real hex codes, type and spacing, every line cited to the reference it came from.
             </p>
             <div className="flex flex-wrap items-center gap-4">
@@ -71,7 +71,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 Claude Code or Cursor for a page, you describe the look in a sentence and get something generic back.
               </p>
               <p>
-                JUSTCREATE keeps every reference in one place and turns the board into the brief: palette, typography, layout,
+                JustCreate keeps every reference in one place and turns the board into the brief: palette, typography, layout,
                 components and motion, written for a coding agent to follow.
               </p>
             </Reveal>

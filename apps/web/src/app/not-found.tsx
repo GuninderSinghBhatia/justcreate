@@ -7,7 +7,7 @@ export default function NotFound() {
       <h1 className="text-3xl font-semibold tracking-tight text-balance">This page isn&apos;t on the board.</h1>
       <p className="text-base text-foreground/70">The link may be old, or what it pointed to was deleted.</p>
       <Link href="/" className="rounded-full bg-foreground px-4 py-2 text-base font-semibold text-background">
-        Back to JUSTCREATE
+        Back to JustCreate
       </Link>
     </main>
   );

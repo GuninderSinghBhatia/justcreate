@@ -17,7 +17,7 @@ class RetryableError extends Error {
 
 async function post(payload: CapturePayload, file?: Blob, thumbnail?: Blob): Promise<void> {
   const token = await getAccessToken().catch(() => {
-    throw new RetryableError('Could not reach JUSTCREATE');
+    throw new RetryableError('Could not reach JustCreate');
   });
   if (!token) throw new RetryableError('Not connected. Open the extension popup to connect.');
 

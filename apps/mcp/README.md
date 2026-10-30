@@ -1,6 +1,6 @@
-# JUSTCREATE MCP server
+# JustCreate MCP server
 
-Read-only access to your JUSTCREATE boards for coding agents (Claude Code, Cursor, any MCP client).
+Read-only access to your JustCreate boards for coding agents (Claude Code, Cursor, any MCP client).
 
 | Tool | What it returns |
 |---|---|
@@ -11,7 +11,7 @@ Read-only access to your JUSTCREATE boards for coding agents (Claude Code, Curso
 ## Setup
 
 1. Build: `npm run build -w @justcreate/mcp` (from the repo root).
-2. Create a token in JUSTCREATE → **Settings → Coding agents**. The page shows the exact command / config with your token and path filled in.
+2. Create a token in JustCreate → **Settings → Coding agents**. The page shows the exact command / config with your token and path filled in.
 3. Claude Code:
 
    ```sh
@@ -25,4 +25,4 @@ Read-only access to your JUSTCREATE boards for coding agents (Claude Code, Curso
      "env": { "JUSTCREATE_URL": "http://localhost:3100", "JUSTCREATE_TOKEN": "jc_…" } } } }
    ```
 
-The server only calls the JUSTCREATE web API (`/api/agent/*`) with your token; it never holds database keys. Revoke a token in Settings to cut access immediately.
+The server only calls the JustCreate web API (`/api/agent/*`) with your token; it never holds database keys. Revoke a token in Settings to cut access immediately.

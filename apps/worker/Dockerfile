@@ -1,4 +1,4 @@
-# JUSTCREATE AI worker. Build from apps/worker:  docker build -t justcreate-worker .
+# JustCreate AI worker. Build from apps/worker:  docker build -t justcreate-worker .
 # Runs the job loop + /health and /wake on $PORT. Needs SUPABASE_URL, SUPABASE_SECRET_KEY and
 # GEMINI_API_KEY or ANTHROPIC_API_KEY (see .env.example).
 FROM python:3.12-slim

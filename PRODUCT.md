@@ -1,4 +1,4 @@
-# JUSTCREATE — product
+# JustCreate — product
 
 **What it is:** a personal visual-inspiration workspace. A Chrome extension saves images, screenshots, videos, posts and pages onto one board per user, a full Excalidraw canvas; AI groups them into style clusters and writes a cited `design.md` that coding agents (Claude Code, Cursor, via MCP) build from.
 

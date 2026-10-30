@@ -1,7 +1,7 @@
 [project]
 name = "justcreate-worker"
 version = "0.1.0"
-description = "JUSTCREATE AI worker: per-reference analysis, CLIP embeddings, clustering"
+description = "JustCreate AI worker: per-reference analysis, CLIP embeddings, clustering"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "anthropic>=1.0",

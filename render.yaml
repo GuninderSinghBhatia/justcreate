@@ -1,4 +1,4 @@
-# Render Blueprint: JUSTCREATE web app + AI worker.
+# Render Blueprint: JustCreate web app + AI worker.
 # Apply: Render dashboard → New → Blueprint → pick this repo. Render asks for the values marked
 # `sync: false` and shows the monthly cost before anything is created.
 services:

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal-page";
 
-export const metadata: Metadata = { title: "Privacy policy · JUSTCREATE" };
+export const metadata: Metadata = { title: "Privacy policy · JustCreate" };
 
 export default function PrivacyPage() {
   return (
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
       <p>
         The extension only acts when you use it: a right click menu item, the toolbar popup or a keyboard shortcut. It then reads
         the current page (for a screenshot, the image you chose, or the post or video you are viewing) and sends that capture
-        to your JUSTCREATE account. It does not track your browsing, read pages in the background, or collect browsing
+        to your JustCreate account. It does not track your browsing, read pages in the background, or collect browsing
         history.
       </p>
 
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
       </ul>
 
       <h2>Contact</h2>
-      <p>Questions about privacy: contact the JUSTCREATE team at the address listed on this site.</p>
+      <p>Questions about privacy: contact the JustCreate team at the address listed on this site.</p>
     </LegalPage>
   );
 }

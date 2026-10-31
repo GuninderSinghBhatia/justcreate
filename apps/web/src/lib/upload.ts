@@ -1,4 +1,4 @@
-import type { CapturePayload, Reference } from "@justcreate/shared";
+import { sendCapture, type CapturePayload, type Reference } from "@justcreate/shared";
 
 /**
  * Uploads dropped or pasted image files from the web app (session cookie auth); they land on the
@@ -30,13 +30,9 @@ async function uploadOne(file: File): Promise<Reference> {
     title: file.name.replace(/\.[^.]+$/, ""),
     metadata: { uploaded: true, ...size },
   };
-  const form = new FormData();
-  form.set("meta", JSON.stringify(meta));
-  form.set("file", file);
-  const res = await fetch("/api/captures", { method: "POST", body: form });
-  const body = (await res.json().catch(() => ({}))) as { reference?: Reference; error?: string };
-  if (!res.ok || !body.reference) throw new Error(body.error ?? `Upload failed (${res.status})`);
-  return body.reference;
+  const result = await sendCapture((path, init) => fetch(path, init), meta, file);
+  if ("error" in result) throw new Error(result.error);
+  return result.reference;
 }
 
 async function imageSize(file: File) {

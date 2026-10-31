@@ -2,35 +2,53 @@
 
 Everything here needs your accounts. Do it in order: the Chrome Web Store needs the live privacy policy URL, and the extension build needs the production web URL.
 
-## 1. Deploy the web app (Vercel)
+## 1. Deploy the AI worker (Hugging Face Space, free)
 
-1. The repo is already on GitHub (private): `GuninderSinghBhatia/justcreate`. Import it in Vercel, set **Root Directory** to `apps/web` (Vercel detects the npm workspace).
+The worker needs ~2 GB of RAM for CLIP; a free CPU Space has 16 GB. It runs from `apps/worker/Dockerfile` as a **private** Space.
+
+1. Hugging Face → Settings → Access Tokens → **New token**, type *Write*. Then `uvx --from huggingface_hub hf auth login` and paste it.
+2. Create the Space, copy the worker's settings into its secrets, and upload the code:
+
+   ```sh
+   uv run --no-project --with huggingface_hub python scripts/deploy_worker.py <hf-user>/justcreate-worker --secrets
+   ```
+
+   Secrets/variables come from the same files the worker reads locally (`apps/web/.env.local`, then `apps/worker/.env`): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `LLM_PROVIDER`, `GROQ_API_KEY` (and any other LLM keys present). The first build takes ~10 minutes; the Space's page shows the log.
+3. Automatic deploys: GitHub repo → Settings → Secrets and variables → Actions: variable `HF_SPACE_ID` = `<hf-user>/justcreate-worker`, secret `HF_TOKEN` = the token. CI then pushes `apps/worker` after its tests and image build pass, only when files changed.
+4. For the web app (next step), make a **fine-grained** token limited to this Space with write access to its contents/settings. It's `WORKER_TOKEN`: it lets the app reach the private Space's `/wake`, and start the Space when it went to sleep.
+
+Free Spaces sleep after 48 hours without requests. Nothing is lost: jobs wait in the `jobs` table, the next capture or cluster request starts the Space, and it works through the queue (about a minute later than usual).
+
+## 2. Deploy the web app (Vercel, free)
+
+1. Vercel → Add New → Project → import `GuninderSinghBhatia/justcreate` (private). **Root Directory**: `apps/web` (Vercel installs the npm workspace from the repo root). `apps/web/vercel.json` pins functions to Mumbai (`bom1`), next to the Supabase project; change it if the project's region (Supabase → Settings → General) is elsewhere.
 2. Environment variables (Production):
 
    | Name | Value |
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | `https://gvqubavzxctimdswjnoq.supabase.co` |
-   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` |
-   | `SUPABASE_SECRET_KEY` | the `justcreate_server` secret key (copy it from Supabase → API Keys; the old `default` key should be deleted) |
-   | `WORKER_URL` | the worker URL from step 2 (optional; the worker also polls) |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` (from `apps/web/.env.local`) |
+   | `SUPABASE_SECRET_KEY` | `sb_secret_…` (from `apps/web/.env.local`) |
+   | `SITE_URL` | `https://<your-domain>` (no trailing slash): magic links point here |
+   | `TRUSTED_PROXY_HOPS` | `1` (rate limits per visitor, from Vercel's `X-Forwarded-For`) |
+   | `WORKER_URL` | `https://<hf-user>-justcreate-worker.hf.space` |
+   | `WORKER_TOKEN` | the fine-grained Hugging Face token from step 1.4 |
+   | `HF_SPACE_ID` | `<hf-user>/justcreate-worker` |
    | `AI_MONTHLY_GENERATIONS` | `30` (optional) |
 
-3. tldraw needs a license key in production: get one at tldraw.dev and pass it to `<Tldraw licenseKey=…>` in `apps/web/src/components/canvas/board-canvas.tsx`.
-4. Supabase → Authentication → URL Configuration: set **Site URL** to the production URL and add `https://<your-domain>/**` to Redirect URLs (keep the localhost entry for development).
+3. Supabase → Authentication → URL Configuration: **Site URL** = the production URL; add `https://<your-domain>/auth/callback**` to Redirect URLs (keep the localhost entry for development).
+4. Check it: `node scripts/e2e-uploads.mjs https://<your-domain>` (a throwaway user, deleted afterwards): uploads over 4.5 MB, byte-identical storage, refused bad uploads, gzipped board saves.
 
-## 2. Deploy the worker (Railway, Render or Fly.io)
+Uploads never pass through Vercel (its functions accept 4.5 MB per request): the app and extension get signed URLs from `/api/captures/uploads` and PUT the original bytes straight to Supabase Storage; `/api/captures` then checks each file's bytes and type before saving. Board saves over 1 MB are sent gzipped.
 
-- Build from `apps/worker` with its `Dockerfile` (CPU-only torch; CLIP weights baked in, image ≈ 1.5 GB). The Dockerfile has not been built locally: Docker isn't installed on this machine.
-- Environment: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `GEMINI_API_KEY` or `ANTHROPIC_API_KEY`. The platform sets `PORT`; the image sets `HOST=0.0.0.0`.
-- One always-on instance with ~2 GB RAM is enough (CLIP runs on CPU). Health check: `GET /health`.
-- Gemini's free tier is 20 requests/day per model; enable billing on the key (or use Claude) before real users arrive.
+The canvas is Excalidraw (MIT): no license key needed.
 
-## 3. Build the extension for the store
+## 3. Build the extension
 
 ```sh
 cd apps/extension
-WXT_APP_URL=https://<your-domain> npx wxt zip
-# → .output/extension-0.1.0-chrome.zip
+WXT_APP_URL=https://<your-domain> npx wxt build   # for yourself: load .output/chrome-mv3 unpacked
+WXT_APP_URL=https://<your-domain> npx wxt zip     # for the store: .output/extension-0.1.0-chrome.zip
 ```
 
 Bump `version` in `apps/extension/package.json` for every upload.

@@ -105,8 +105,9 @@ export interface CaptureMetadata {
 }
 
 /**
- * JSON sent as the `meta` field of POST /api/captures (multipart).
- * The optional `file` field carries the main image (or screenshot).
+ * The capture's details, sent to POST /api/captures as `meta`: either in a JSON body next to the
+ * paths of files already uploaded through POST /api/captures/uploads, or (older clients) as a
+ * multipart field next to the files themselves.
  * If there is no file, the server tries to download `remoteFileUrl`.
  */
 export interface CapturePayload {
@@ -126,6 +127,42 @@ export interface CapturePayload {
 export interface CaptureResponse {
   reference?: Reference;
   error?: string;
+}
+
+/** Largest file (or thumbnail) a capture can store. */
+export const MAX_CAPTURE_BYTES = 50 * 1024 * 1024;
+
+export type ImageType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/avif';
+
+/** The image type from a file's first 16 bytes, for the formats we store; null for anything else. */
+export function sniffImage(head: Uint8Array): ImageType | null {
+  const ascii = (from: number, to: number) => String.fromCharCode(...head.subarray(from, to));
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'image/jpeg';
+  if (head[0] === 0x89 && ascii(1, 4) === 'PNG') return 'image/png';
+  if (ascii(0, 4) === 'GIF8') return 'image/gif';
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
+  if (ascii(4, 8) === 'ftyp' && ['avif', 'avis'].includes(ascii(8, 12))) return 'image/avif';
+  return null;
+}
+
+/**
+ * POST /api/captures/uploads: one ticket per file, in order. Files go straight to storage with
+ * a PUT to `url` (Content-Type = the declared type, body = the file's original bytes), so they never
+ * pass through the web server and its request size limit. The capture then names them by `path`.
+ */
+export interface UploadRequest {
+  files: { type: ImageType; size: number }[];
+}
+export interface UploadResponse {
+  uploads?: { path: string; url: string }[];
+  error?: string;
+}
+
+/** JSON body of POST /api/captures once the files are uploaded. */
+export interface CaptureRequest {
+  meta: CapturePayload;
+  filePath?: string;
+  thumbnailPath?: string;
 }
 
 export const CARD_WIDTH = 280;
@@ -193,4 +230,57 @@ export function imageUrlCandidates(url: string): string[] {
     if (u.search) add(`${u.origin}${u.pathname}`);
   }
   return [...out, url];
+}
+
+export type CaptureResult = { reference: Reference } | { error: string; status: number };
+
+/**
+ * Saves a capture from the app or the extension: the file and thumbnail go straight to storage
+ * byte for byte (no re-encoding, so no quality lost), then the capture is posted with their paths.
+ * `api` calls the web app with the caller's auth. Network failures throw; the server's answers
+ * (including a refused file) come back as `{ error, status }`.
+ */
+export async function sendCapture(
+  api: (path: string, init: RequestInit) => Promise<Response>,
+  payload: CapturePayload,
+  file?: Blob | null,
+  thumbnail?: Blob | null,
+): Promise<CaptureResult> {
+  const parts: { key: 'filePath' | 'thumbnailPath'; blob: Blob; type: ImageType }[] = [];
+  for (const [key, blob] of [['filePath', file], ['thumbnailPath', thumbnail]] as const) {
+    if (!blob) continue;
+    if (blob.size > MAX_CAPTURE_BYTES) return { error: 'File larger than 50 MB', status: 413 };
+    const type = sniffImage(new Uint8Array(await blob.slice(0, 16).arrayBuffer()));
+    if (!type) return { error: 'Only JPEG, PNG, GIF, WebP or AVIF images can be saved', status: 415 };
+    parts.push({ key, blob, type });
+  }
+
+  const request: CaptureRequest = { meta: payload };
+  if (parts.length) {
+    const files: UploadRequest['files'] = parts.map((p) => ({ type: p.type, size: p.blob.size }));
+    const res = await api('/api/captures/uploads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files } satisfies UploadRequest),
+    });
+    const body = (await res.json().catch(() => ({}))) as UploadResponse;
+    if (!res.ok || body.uploads?.length !== parts.length) {
+      return { error: body.error ?? `Server error ${res.status}`, status: res.ok ? 500 : res.status };
+    }
+    for (const [i, part] of parts.entries()) {
+      const { path, url } = body.uploads[i];
+      const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': part.type }, body: part.blob });
+      if (!put.ok) return { error: `Upload failed (${put.status}). Try again.`, status: put.status };
+      request[part.key] = path;
+    }
+  }
+
+  const res = await api('/api/captures', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  const body = (await res.json().catch(() => ({}))) as CaptureResponse;
+  if (res.ok && body.reference) return { reference: body.reference };
+  return { error: body.error ?? `Server error ${res.status}`, status: res.ok ? 500 : res.status };
 }

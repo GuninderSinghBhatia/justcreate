@@ -1,4 +1,4 @@
-import type { CapturePayload, CaptureResponse } from '@justcreate/shared';
+import { sendCapture, type CapturePayload, type CaptureResult } from '@justcreate/shared';
 import { getAccessToken, getSession } from './auth';
 import { APP_URL } from './config';
 import { dequeue, enqueue, listQueue } from './queue';
@@ -21,29 +21,22 @@ async function post(payload: CapturePayload, file?: Blob, thumbnail?: Blob): Pro
   });
   if (!token) throw new RetryableError('Not connected. Open the extension popup to connect.');
 
-  const form = new FormData();
-  form.set('meta', JSON.stringify(payload));
-  if (file) form.set('file', file);
-  if (thumbnail) form.set('thumbnail', thumbnail);
-
-  let res: Response;
+  // Files go straight to storage, original bytes, then the capture is posted with their paths.
+  const api = (path: string, init: RequestInit) =>
+    fetch(`${APP_URL}${path}`, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+  let result: CaptureResult;
   try {
-    res = await fetch(`${APP_URL}/api/captures`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
+    result = await sendCapture(api, payload, file, thumbnail);
   } catch {
     throw new RetryableError('Offline or server unreachable');
   }
-  if (res.ok) return;
+  if ('reference' in result) return;
 
-  const body = (await res.json().catch(() => ({}))) as CaptureResponse;
-  const reason = body.error ?? `Server error ${res.status}`;
+  const { error: reason, status } = result;
   // Auth, rate limit and server errors may clear up; a bad request will not. A server error may be
   // about this one capture, so the queue moves on to the next.
-  if (res.status === 401 || res.status === 429) throw new RetryableError(reason);
-  if (res.status >= 500) throw new RetryableError(reason, false);
+  if (status === 401 || status === 429) throw new RetryableError(reason);
+  if (status >= 500) throw new RetryableError(reason, false);
   throw new Error(reason);
 }
 

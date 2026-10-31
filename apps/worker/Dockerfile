@@ -1,6 +1,7 @@
 # JustCreate AI worker. Build from apps/worker:  docker build -t justcreate-worker .
-# Runs the job loop + /health and /wake on $PORT. Needs SUPABASE_URL, SUPABASE_SECRET_KEY and
-# GEMINI_API_KEY or ANTHROPIC_API_KEY (see .env.example).
+# Runs the job loop + /health and /wake on $PORT. Needs SUPABASE_URL, SUPABASE_SECRET_KEY and an
+# LLM key: GROQ_API_KEY, ANTHROPIC_API_KEY or GEMINI_API_KEY (see .env.example).
+# Runs as user 1000 (what Hugging Face Spaces use); it only reads files at runtime.
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
@@ -18,6 +19,10 @@ RUN python -c "import open_clip; open_clip.create_model_and_transforms('ViT-B-32
 ENV HF_HUB_OFFLINE=1
 
 COPY worker ./worker
+# The app runs as user 1000 (Hugging Face Spaces require it); only ./worker is theirs, for bytecode.
+RUN useradd -m -u 1000 user && chown -R user /app/worker
+USER user
+ENV HOME=/home/user
 
 ENV HOST=0.0.0.0 PORT=8100
 EXPOSE 8100

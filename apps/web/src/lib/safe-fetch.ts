@@ -135,14 +135,3 @@ function readCapped(res: http.IncomingMessage, maxBytes: number) {
     res.on("error", reject);
   });
 }
-
-/** The image type from a file's first bytes, for the formats we store; null for anything else. */
-export function sniffImage(head: Uint8Array): "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "image/avif" | null {
-  const ascii = (from: number, to: number) => String.fromCharCode(...head.subarray(from, to));
-  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return "image/jpeg";
-  if (head[0] === 0x89 && ascii(1, 4) === "PNG") return "image/png";
-  if (ascii(0, 4) === "GIF8") return "image/gif";
-  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
-  if (ascii(4, 8) === "ftyp" && ["avif", "avis"].includes(ascii(8, 12))) return "image/avif";
-  return null;
-}

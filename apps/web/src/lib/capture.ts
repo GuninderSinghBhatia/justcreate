@@ -4,24 +4,37 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CAPTURES_BUCKET,
   imageUrlCandidates,
+  MAX_CAPTURE_BYTES,
   REFERENCE_TYPES,
+  sniffImage,
   type CaptureMetadata,
   type CapturePayload,
+  type ImageType,
   type Reference,
 } from "@justcreate/shared";
 import { enqueueJob } from "@/lib/jobs";
 import { addToBoard, homeBoard } from "@/lib/boards";
-import { fetchPublic, sniffImage } from "@/lib/safe-fetch";
+import { fetchPublic } from "@/lib/safe-fetch";
 
-export const MAX_BYTES = 50 * 1024 * 1024;
+export const MAX_BYTES = MAX_CAPTURE_BYTES;
 
-const EXTENSIONS: Record<string, string> = {
+export const EXTENSIONS: Record<ImageType, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
   "image/gif": "gif",
   "image/avif": "avif",
 };
+
+/** Where a new capture file of `type` is stored: the user's own folder (storage RLS checks it). */
+export function capturePath(userId: string, type: ImageType) {
+  return `${userId}/${crypto.randomUUID()}.${EXTENSIONS[type]}`;
+}
+
+/** A file the client already uploaded with a ticket from POST /api/captures/uploads. */
+export interface StoredFile {
+  path: string;
+}
 
 export class CaptureError extends Error {
   constructor(
@@ -34,35 +47,57 @@ export class CaptureError extends Error {
 
 /**
  * Stores one capture for `userId` using a client that acts as that user (RLS applies):
- * uploads the file (and optional card thumbnail), inserts the reference, places it on the user's
- * board, and queues analysis.
+ * uploads the file (and optional card thumbnail) unless the client already did, inserts the
+ * reference, places it on the user's board, and queues analysis.
  */
 export async function saveCapture(
   supabase: SupabaseClient,
   userId: string,
   payload: CapturePayload,
-  files: { file?: Blob | null; thumbnail?: Blob | null },
+  files: { file?: Blob | StoredFile | null; thumbnail?: Blob | StoredFile | null },
+): Promise<Reference> {
+  // Files the client uploaded itself: once they're shown to be its own fresh uploads, they're this
+  // capture's, and any failure below removes them.
+  const uploaded = [...new Set([files.file, files.thumbnail].flatMap((f) => (f && !(f instanceof Blob) ? [f.path] : [])))];
+  await checkUnused(supabase, userId, uploaded);
+  try {
+    return await store(supabase, userId, payload, files, uploaded);
+  } catch (err) {
+    // Nothing half-saved: no files without a row.
+    if (uploaded.length) await supabase.storage.from(CAPTURES_BUCKET).remove(uploaded);
+    throw err;
+  }
+}
+
+async function store(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: CapturePayload,
+  files: { file?: Blob | StoredFile | null; thumbnail?: Blob | StoredFile | null },
+  uploaded: string[],
 ): Promise<Reference> {
   if (!REFERENCE_TYPES.includes(payload.type)) throw new CaptureError("Unknown type", 400);
 
   for (const f of [files.file, files.thumbnail]) {
-    if (f && f.size > MAX_BYTES) throw new CaptureError("File larger than 50 MB", 413);
+    if (f instanceof Blob && f.size > MAX_BYTES) throw new CaptureError("File larger than 50 MB", 413);
   }
   // Stored files are only ever raster images, typed by their bytes: never what the client claims.
-  let file = files.file ? await asImage(files.file) : null;
+  const prepare = async (f: Blob | StoredFile | null | undefined) =>
+    !f ? null : f instanceof Blob ? asImage(f) : (await checkStored(supabase, f.path), f);
+  let file = await prepare(files.file);
   if (!file && payload.remoteFileUrl) file = await download(payload.remoteFileUrl);
-  const thumbnail = files.thumbnail ? await asImage(files.thumbnail) : null;
+  const thumbnail = await prepare(files.thumbnail);
 
   let metadata: CaptureMetadata = payload.metadata ?? {};
   if (payload.type === "tweet" && !metadata.text && payload.sourceUrl) {
     metadata = { ...metadata, ...(await tweetOEmbed(payload.sourceUrl)) };
   }
 
-  const uploaded: string[] = [];
   let saved: string | null = null;
-  const put = async (blob: Blob | null | undefined) => {
+  const put = async (blob: Blob | StoredFile | null | undefined) => {
     if (!blob) return null;
-    const path = `${userId}/${crypto.randomUUID()}.${EXTENSIONS[blob.type]}`;
+    if (!(blob instanceof Blob)) return blob.path;
+    const path = capturePath(userId, blob.type as ImageType);
     const { error } = await supabase.storage.from(CAPTURES_BUCKET).upload(path, blob, { contentType: blob.type });
     if (error) {
       console.error("capture upload:", error.message);
@@ -105,10 +140,60 @@ export async function saveCapture(
     await enqueueJob(userId, "analyze", { referenceId: reference.id }).catch((e) => console.error(e));
     return reference;
   } catch (err) {
-    // Nothing half-saved: no row pointing at removed files, no files without a row.
+    // No row pointing at removed files (saveCapture removes the files).
     if (saved) await supabase.from("references").delete().eq("id", saved);
-    if (uploaded.length) await supabase.storage.from(CAPTURES_BUCKET).remove(uploaded);
     throw err;
+  }
+}
+
+const STORED_PATH = /^([0-9a-f-]{36})\/[0-9a-f-]{36}\.(png|jpg|webp|gif|avif)$/;
+
+/**
+ * Uploaded files a capture may claim: in the user's folder, named like a fresh upload, and not
+ * already used by a reference (which would lose its file if this capture failed or was deleted).
+ */
+async function checkUnused(supabase: SupabaseClient, userId: string, paths: string[]) {
+  for (const path of paths) {
+    if (STORED_PATH.exec(path)?.[1] !== userId) throw new CaptureError("Unknown upload", 400);
+  }
+  if (!paths.length) return;
+  const list = paths.map((p) => `"${p}"`).join(",");
+  const { data, error } = await supabase
+    .from("references")
+    .select("id")
+    .or(`file_path.in.(${list}),thumbnail_path.in.(${list})`)
+    .limit(1);
+  if (error) {
+    console.error("capture upload lookup:", error.message);
+    throw new CaptureError("Save failed. Try again.", 500);
+  }
+  if (data.length) throw new CaptureError("Upload already used", 409);
+}
+
+/**
+ * A file the client uploaded straight to storage, checked as strictly as one sent to the server:
+ * at most 50 MB, and its bytes and stored Content-Type both the image type its name says. Reads
+ * only the first 16 bytes.
+ */
+async function checkStored(supabase: SupabaseClient, path: string) {
+  const expected = (Object.keys(EXTENSIONS) as ImageType[]).find((t) => path.endsWith(`.${EXTENSIONS[t]}`));
+
+  const { data: signed, error } = await supabase.storage.from(CAPTURES_BUCKET).createSignedUrl(path, 60);
+  if (error || !signed) throw new CaptureError("Upload not found. Try again.", 400);
+  let res: Response;
+  try {
+    res = await fetch(signed.signedUrl, { headers: { Range: "bytes=0-15" }, signal: AbortSignal.timeout(15_000) });
+  } catch {
+    throw new CaptureError("Couldn't check the upload. Try again.", 502);
+  }
+  if (!res.ok) throw new CaptureError("Upload not found. Try again.", 400);
+  const head = new Uint8Array(await res.arrayBuffer()).subarray(0, 16);
+  const total = Number(res.headers.get("content-range")?.split("/")[1] ?? res.headers.get("content-length"));
+  if (!total) throw new CaptureError("The file is empty", 400);
+  if (total > MAX_BYTES) throw new CaptureError("File larger than 50 MB", 413);
+  const contentType = res.headers.get("content-type")?.split(";")[0].trim();
+  if (sniffImage(head) !== expected || contentType !== expected) {
+    throw new CaptureError("Only JPEG, PNG, GIF, WebP or AVIF images can be saved", 415);
   }
 }
 

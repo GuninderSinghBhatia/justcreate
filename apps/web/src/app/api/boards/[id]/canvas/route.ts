@@ -41,8 +41,10 @@ export async function PUT(request: Request, { params }: RouteContext<"/api/board
   if (Number(request.headers.get("content-length")) > MAX_BODY) {
     return NextResponse.json({ error: "This board is too large to save" }, { status: 413 });
   }
-  const text = await request.text();
-  if (text.length > MAX_BODY) return NextResponse.json({ error: "This board is too large to save" }, { status: 413 });
+  const text = await readBody(request);
+  if (text === null || text.length > MAX_BODY) {
+    return NextResponse.json({ error: "This board is too large to save" }, { status: 413 });
+  }
   const body = parse(text);
   if (!body) return NextResponse.json({ error: "Bad body" }, { status: 400 });
 
@@ -83,6 +85,33 @@ export async function PUT(request: Request, { params }: RouteContext<"/api/board
   const added = [...onCanvas].filter((id) => !before.has(id)).length;
   if (added) await touchBoard(supabase, user.id, boardId, added);
   return NextResponse.json({ ok: true, added, removed: removed.length, skipped: body.items.length - items.length });
+}
+
+/**
+ * The body as text. Large boards arrive gzipped (`X-Body-Encoding: gzip`) to stay under the web
+ * host's request size limit; they're inflated here, stopping (null) past MAX_BODY.
+ */
+async function readBody(request: Request): Promise<string | null> {
+  if (request.headers.get("x-body-encoding") !== "gzip") return request.text();
+  if (!request.body) return "";
+  const reader = request.body.pipeThrough(new DecompressionStream("gzip")).getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > MAX_BODY) {
+        void reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return ""; // not gzip: parse() turns it into a 400
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
 /** The body, shape-checked; null when it isn't a canvas save. */

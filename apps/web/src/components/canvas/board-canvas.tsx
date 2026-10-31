@@ -24,6 +24,8 @@ import { Lightbox, type Zoomed } from "./lightbox";
 import { PAPERS, ToolStrip, type ActiveTool, type Paper } from "./tool-strip";
 
 const SAVE_DELAY_MS = 800;
+/** Saves larger than this (characters of JSON) are sent gzipped. */
+const GZIP_OVER = 1_000_000;
 const PAPER_KEY = "justcreate:canvas-paper";
 
 export interface CanvasHandle {
@@ -227,10 +229,14 @@ export function BoardCanvas({
     const removed = [...seen.current].filter((id) => !present.has(id));
     const body = JSON.stringify({ document: { type: "excalidraw", elements } satisfies SavedScene, items: placed, removed });
     try {
+      // Big boards travel gzipped: the web host refuses request bodies over 4.5 MB.
+      const zipped = body.length > GZIP_OVER ? await gzip(body) : null;
       const res = await fetch(`/api/boards/${boardId}/canvas`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body,
+        headers: zipped
+          ? { "Content-Type": "application/octet-stream", "X-Body-Encoding": "gzip" }
+          : { "Content-Type": "application/json" },
+        body: zipped ?? body,
         // keepalive lets a save outlive the closing tab, but browsers refuse keepalive bodies over
         // 64 KB outright: only small final saves use it (larger ones are flushed when the tab hides).
         keepalive: unloading && body.length < 60_000,
@@ -555,6 +561,10 @@ function fitCrops(ed: ExcalidrawImperativeAPI, fileId: FileId, naturalWidth: num
     return newElementWith(el, { crop });
   });
   if (changed) ed.updateScene({ elements, captureUpdate: CaptureUpdateAction.NEVER });
+}
+
+function gzip(text: string) {
+  return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
 }
 
 function blobToDataURL(blob: Blob) {

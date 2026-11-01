@@ -27,7 +27,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] GitHub Actions workflow (`.github/workflows/ci.yml`): type-check, lint, builds, worker tests — runs once a GitHub remote exists
 - [ ] Google login — needs a Google Cloud OAuth client (you), then enable in Supabase → Auth → Providers
 - [x] Web app live on Vercel (free): https://justcreate-seven.vercel.app, functions in Mumbai, deploys on every push to `main`
-- [x] Worker runs on your laptop (`npm run dev:worker`); jobs queue until it runs. Hosting it needs Hugging Face PRO or Render (paid): [LAUNCH.md](LAUNCH.md) §1
+- [x] AI worker online on Modal (free monthly credit), woken by the site and swept every 10 minutes: [LAUNCH.md](LAUNCH.md) §1
 - [ ] Sentry — needs your Sentry account/DSN
 
 ## Phase 1 — Capture
@@ -101,7 +101,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Supabase secret key rotated (new key `justcreate_server` in `.env.local`, everything verified on it)
 - [x] Old leaked secret key deleted (you)
 - [x] Decision: run locally for now (`npm run dev` starts web + worker). `render.yaml` is ready for when the worker should run without your laptop (needs a paid ~2 GB instance)
-- [x] Decision (2026-11-01): web on Vercel (free), worker stays on the laptop: Hugging Face now charges for Docker Spaces. The Space deploy (script, CI job, wake/start code) is kept for later
+- [x] Decision (2026-11-01): web on Vercel (free), worker on Modal, run on demand (free credit). Hugging Face now charges for Docker Spaces; Render's always-on 2 GB costs ~$25/month
 - [ ] Supabase → Auth → URL Configuration: Site URL + `https://justcreate-seven.vercel.app/auth/callback**` (you)
 - [x] Migration 0007 applied (you); verified: token rows server-only (revoked tokens stay revoked), AI design.md versions worker-only, one board per user (5 parallel first captures → 1 board)
 - [x] Migration 0008 applied (you); verified: a reference can't point at another user's file, users can still edit titles, review tests 18/18

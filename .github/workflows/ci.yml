@@ -62,16 +62,20 @@ jobs:
           print('provider', s.provider, 'clip dims', v.shape[0]); assert v.shape[0] == 512"
 
   deploy-worker:
-    # Pushes apps/worker to the Hugging Face Space once tests and the image build pass (only files
-    # that changed, so other pushes don't rebuild it). Needs the HF_SPACE_ID variable and HF_TOKEN
-    # secret in the GitHub repo settings; skipped until they exist.
+    # Deploys apps/worker to Modal once tests and the image build pass. Needs the MODAL_TOKEN_ID and
+    # MODAL_TOKEN_SECRET secrets in the GitHub repo settings; skipped until they exist.
     needs: [worker, worker-image]
-    if: github.ref == 'refs/heads/main' && vars.HF_SPACE_ID != ''
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/worker
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
-      - run: uv run --no-project --with huggingface_hub python scripts/deploy_worker.py "$HF_SPACE_ID"
-        env:
-          HF_SPACE_ID: ${{ vars.HF_SPACE_ID }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      - name: Deploy to Modal
+        if: env.MODAL_TOKEN_ID != ''
+        run: uvx modal deploy modal_app.py

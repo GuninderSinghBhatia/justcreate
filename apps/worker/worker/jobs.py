@@ -6,6 +6,7 @@ import hashlib
 import io
 import logging
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
@@ -59,6 +60,18 @@ class Worker:
             for job in jobs:
                 self._run(job)
                 ran += 1
+
+    def drain(self, linger: float = 300, poll: float = 5, sleep=time.sleep) -> int:
+        """For a worker that runs only when woken (Modal): runs due jobs, and while a pending job
+        (a retry, a deferred cluster) is due within `linger` seconds, keeps claiming every `poll`
+        seconds, so it and any job queued meanwhile run now. Returns how many ran."""
+        ran = 0
+        while True:
+            ran += self.run_due()
+            nxt = self.db.select("jobs", {"status": "eq.pending", "select": "run_after", "order": "run_after.asc", "limit": "1"})
+            if not nxt or (datetime.fromisoformat(nxt[0]["run_after"]) - datetime.now(timezone.utc)).total_seconds() > linger:
+                return ran
+            sleep(poll)
 
     def _finish(self, job: dict, values: dict) -> None:
         """Records a job's outcome, only while the row is still this run's: if the job was reclaimed

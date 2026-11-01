@@ -2,28 +2,22 @@
 
 Everything here needs your accounts. Do it in order: the Chrome Web Store needs the live privacy policy URL, and the extension build needs the production web URL.
 
-## 1. Deploy the AI worker
+## 1. Deploy the AI worker (Modal, free credit)
 
-**Current setup (2026-11-01): the worker runs on your laptop** (`npm run dev:worker`). The live site doesn't need it to save anything: jobs wait in the `jobs` table and run whenever the worker is up. No `WORKER_URL` is set on Vercel (it can't reach the laptop); the worker polls every few seconds.
+**Live (2026-11-01):** Modal app `justcreate-worker` (workspace `guninder-growth`), wake URL `https://guninder-growth--justcreate-worker-web.us-east.modal.run`. It runs only when there's work: the web app POSTs `/wake` after queueing a job, a run works through every due job (and keeps checking every 5 s while a retry is due within 5 minutes), then stops; a sweep every 10 minutes catches retries and missed wakes. 1 CPU + 2 GB per run (CLIP), well inside Modal's $30/month free credit for personal use. Code: `apps/worker/modal_app.py`, same `uv.lock` and baked CLIP weights as the Dockerfile.
 
-To host it instead (~2 GB RAM for CLIP): Hugging Face now requires a PRO subscription ($9/month) for Docker Spaces (free accounts get `402 Payment Required`); `render.yaml` is the other ready option (~$25/month). The Hugging Face steps:
+1. `uvx modal token new` (browser sign-in).
+2. `node scripts/setup-worker-secret.mjs`: Modal secret `justcreate-worker` (Supabase URL + secret key, LLM settings, from `apps/web/.env.local` and `apps/worker/.env`, plus a new `WAKE_TOKEN`) and the same token as Vercel's `WORKER_TOKEN`. Re-run it after changing keys.
+3. `cd apps/worker && uvx modal deploy modal_app.py`. CI does this on every push to `main` after the worker tests and image build pass, once the repo has the `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` secrets.
+4. Vercel env: `WORKER_URL` = the wake URL above.
 
-1. Hugging Face → Settings → Access Tokens → **New token**, type *Write*. Then `uvx --from huggingface_hub hf auth login` and paste it.
-2. Create the Space, copy the worker's settings into its secrets, and upload the code:
+Logs and runs: the Modal dashboard (Apps → justcreate-worker). The local worker (`npm run dev:worker`) still works alongside it: jobs are claimed one at a time, never twice.
 
-   ```sh
-   uv run --no-project --with huggingface_hub python scripts/deploy_worker.py <hf-user>/justcreate-worker --secrets
-   ```
-
-   Secrets/variables come from the same files the worker reads locally (`apps/web/.env.local`, then `apps/worker/.env`): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `LLM_PROVIDER`, `GROQ_API_KEY` (and any other LLM keys present). The first build takes ~10 minutes; the Space's page shows the log.
-3. Automatic deploys: GitHub repo → Settings → Secrets and variables → Actions: variable `HF_SPACE_ID` = `<hf-user>/justcreate-worker`, secret `HF_TOKEN` = the token. CI then pushes `apps/worker` after its tests and image build pass, only when files changed.
-4. For the web app (next step), make a **fine-grained** token limited to this Space with write access to its contents/settings. It's `WORKER_TOKEN`: it lets the app reach the private Space's `/wake`, and start the Space when it went to sleep.
-
-Free Spaces sleep after 48 hours without requests. Nothing is lost: jobs wait in the `jobs` table, the next capture or cluster request starts the Space, and it works through the queue (about a minute later than usual).
+Other hosts: `apps/worker/Dockerfile` runs anywhere with ~2 GB RAM (`render.yaml` is ready, ~$25/month). Hugging Face Docker Spaces need PRO.
 
 ## 2. Deploy the web app (Vercel, free)
 
-**Live: https://justcreate-seven.vercel.app** (Vercel project `justcreate`, deploys every push to `main`; this folder is linked with `vercel link`). Production env vars are set; `WORKER_URL`, `WORKER_TOKEN` and `HF_SPACE_ID` only when the worker is hosted.
+**Live: https://justcreate-seven.vercel.app** (Vercel project `justcreate`, deploys every push to `main`; this folder is linked with `vercel link`). Production env vars are set, including `WORKER_URL` and `WORKER_TOKEN` for the Modal worker.
 
 1. Vercel → Add New → Project → import `GuninderSinghBhatia/justcreate` (private). **Root Directory**: `apps/web` (Vercel installs the npm workspace from the repo root). `apps/web/vercel.json` pins functions to Mumbai (`bom1`), next to the Supabase project; change it if the project's region (Supabase → Settings → General) is elsewhere.
 2. Environment variables (Production):
@@ -35,9 +29,8 @@ Free Spaces sleep after 48 hours without requests. Nothing is lost: jobs wait in
    | `SUPABASE_SECRET_KEY` | `sb_secret_…` (from `apps/web/.env.local`) |
    | `SITE_URL` | `https://<your-domain>` (no trailing slash): magic links point here |
    | `TRUSTED_PROXY_HOPS` | `1` (rate limits per visitor, from Vercel's `X-Forwarded-For`) |
-   | `WORKER_URL` | `https://<hf-user>-justcreate-worker.hf.space` |
-   | `WORKER_TOKEN` | the fine-grained Hugging Face token from step 1.4 |
-   | `HF_SPACE_ID` | `<hf-user>/justcreate-worker` |
+   | `WORKER_URL` | the Modal wake URL (§1) |
+   | `WORKER_TOKEN` | set by `scripts/setup-worker-secret.mjs` |
    | `AI_MONTHLY_GENERATIONS` | `30` (optional) |
 
 3. Supabase → Authentication → URL Configuration: **Site URL** = the production URL; add `https://<your-domain>/auth/callback**` to Redirect URLs (keep the localhost entry for development).

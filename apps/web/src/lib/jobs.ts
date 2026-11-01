@@ -30,32 +30,21 @@ export async function enqueueJob(
 }
 
 /**
- * Pokes the worker so new jobs start right away instead of on its next poll. Best effort.
- * WORKER_TOKEN is sent as a bearer token (a private Hugging Face Space needs it). A Space that has
- * gone to sleep doesn't answer, so it's asked to start: it then runs every open job in the table.
+ * Pokes the worker so new jobs start right away instead of on its next sweep. Best effort. When
+ * WORKER_TOKEN is set it's sent as a bearer token (the hosted worker's /wake requires it).
  */
 async function wakeWorker() {
   const url = process.env.WORKER_URL;
   if (!url) return;
   const token = process.env.WORKER_TOKEN;
-  const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
   try {
-    const res = await fetch(`${url}/wake`, { method: "POST", headers, signal: AbortSignal.timeout(5000) });
-    if (res.ok) return;
+    await fetch(`${url}/wake`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(10_000),
+    });
   } catch {
-    // asleep, starting or unreachable: see below
-  }
-  const space = process.env.HF_SPACE_ID;
-  if (!space || !token) return;
-  try {
-    const api = `https://huggingface.co/api/spaces/${space}`;
-    const runtime = await fetch(`${api}/runtime`, { headers, signal: AbortSignal.timeout(5000) });
-    const { stage } = runtime.ok ? ((await runtime.json()) as { stage?: string }) : {};
-    // Only a Space that went to sleep: one that's building or starting is on its way, and a
-    // paused one was paused on purpose.
-    if (stage === "SLEEPING") await fetch(`${api}/restart`, { method: "POST", headers, signal: AbortSignal.timeout(5000) });
-  } catch {
-    // The worker polls the jobs table once it runs.
+    // The worker sweeps the jobs table anyway.
   }
 }
 

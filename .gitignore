@@ -13,3 +13,4 @@ dist/
 *.tsbuildinfo
 __pycache__/
 .vercel
+!apps/extension/.env.production

@@ -2,9 +2,11 @@
 
 Everything here needs your accounts. Do it in order: the Chrome Web Store needs the live privacy policy URL, and the extension build needs the production web URL.
 
-## 1. Deploy the AI worker (Hugging Face Space, free)
+## 1. Deploy the AI worker
 
-The worker needs ~2 GB of RAM for CLIP; a free CPU Space has 16 GB. It runs from `apps/worker/Dockerfile` as a **private** Space.
+**Current setup (2026-11-01): the worker runs on your laptop** (`npm run dev:worker`). The live site doesn't need it to save anything: jobs wait in the `jobs` table and run whenever the worker is up. No `WORKER_URL` is set on Vercel (it can't reach the laptop); the worker polls every few seconds.
+
+To host it instead (~2 GB RAM for CLIP): Hugging Face now requires a PRO subscription ($9/month) for Docker Spaces (free accounts get `402 Payment Required`); `render.yaml` is the other ready option (~$25/month). The Hugging Face steps:
 
 1. Hugging Face → Settings → Access Tokens → **New token**, type *Write*. Then `uvx --from huggingface_hub hf auth login` and paste it.
 2. Create the Space, copy the worker's settings into its secrets, and upload the code:
@@ -20,6 +22,8 @@ The worker needs ~2 GB of RAM for CLIP; a free CPU Space has 16 GB. It runs from
 Free Spaces sleep after 48 hours without requests. Nothing is lost: jobs wait in the `jobs` table, the next capture or cluster request starts the Space, and it works through the queue (about a minute later than usual).
 
 ## 2. Deploy the web app (Vercel, free)
+
+**Live: https://justcreate-seven.vercel.app** (Vercel project `justcreate`, deploys every push to `main`; this folder is linked with `vercel link`). Production env vars are set; `WORKER_URL`, `WORKER_TOKEN` and `HF_SPACE_ID` only when the worker is hosted.
 
 1. Vercel → Add New → Project → import `GuninderSinghBhatia/justcreate` (private). **Root Directory**: `apps/web` (Vercel installs the npm workspace from the repo root). `apps/web/vercel.json` pins functions to Mumbai (`bom1`), next to the Supabase project; change it if the project's region (Supabase → Settings → General) is elsewhere.
 2. Environment variables (Production):
@@ -45,10 +49,11 @@ The canvas is Excalidraw (MIT): no license key needed.
 
 ## 3. Build the extension
 
+`apps/extension/.env.production` holds the live address, so builds use it (dev mode keeps localhost):
+
 ```sh
-cd apps/extension
-WXT_APP_URL=https://<your-domain> npx wxt build   # for yourself: load .output/chrome-mv3 unpacked
-WXT_APP_URL=https://<your-domain> npx wxt zip     # for the store: .output/extension-0.1.0-chrome.zip
+npm run build -w extension              # for yourself: load apps/extension/.output/chrome-mv3 unpacked
+cd apps/extension && npx wxt zip        # for the store: .output/extension-0.1.0-chrome.zip
 ```
 
 Bump `version` in `apps/extension/package.json` for every upload.

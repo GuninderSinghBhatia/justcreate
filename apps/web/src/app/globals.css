@@ -21,7 +21,6 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-nunito), system-ui, sans-serif;
-  --font-hand: var(--font-kalam), var(--font-nunito), cursive;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -49,22 +48,14 @@ body {
   font-family: var(--font-sans);
 }
 
-/* The app speaks Nunito everywhere (bar, panels, settings, design.md). Handwriting is the
-   landing page's voice: inside `.handwritten`, and wherever `.font-hand` asks for it.
+/* Nunito everywhere: the app and the landing page.
    In the base layer so utilities (font-sans, font-semibold) can still override it. */
 @layer base {
   /* Not inside the Excalidraw canvas: it brings its own UI type. */
   :is(h1, h2, h3, h4):not(.excalidraw *) { font-weight: 700; letter-spacing: -0.01em; }
-  :is(.handwritten :is(h1, h2, h3, h4, button, summary, th, label, [role="tab"]), .font-hand):not(.excalidraw *) {
-    font-family: var(--font-hand);
-    font-size-adjust: 0.5; /* match Nunito's apparent size */
-    font-synthesis: none; /* real 400 and 700 only: never a faked weight */
-    letter-spacing: normal;
-  }
-  input, textarea { font-family: var(--font-sans); font-size-adjust: none; }
-  pre, code { font-family: var(--font-mono); font-size-adjust: none; }
+  input, textarea { font-family: var(--font-sans); }
+  pre, code { font-family: var(--font-mono); }
 }
-.font-sans { font-size-adjust: none; }
 
 /* Controls wobble a little under the pen (Excalidraw's toolbar keeps its own feel). */
 button:not(:disabled, .excalidraw *), a[class*="rounded"] {
@@ -210,7 +201,7 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 button.bar-ctl:hover, button.bar-ctl:active, a.bar-ctl:hover, a.bar-ctl:active { transform: none; }
 
 /* The JustCreate wordmark: the site's body face (Nunito), heavy, same everywhere. */
-.wordmark { font-family: var(--font-sans); font-weight: 800; letter-spacing: -0.01em; font-size-adjust: none; }
+.wordmark { font-family: var(--font-sans); font-weight: 800; letter-spacing: -0.01em; }
 /* Key reference images in a design.md. */
 .prose-spec .spec-figure {
   display: block; max-width: 100%; max-height: 22rem; width: auto; margin: 0.5rem 0;

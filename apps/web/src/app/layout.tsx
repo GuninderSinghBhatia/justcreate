@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Kalam, Nunito } from "next/font/google";
+import { Geist_Mono, Nunito } from "next/font/google";
 import "./globals.css";
 
-// Kalam, a felt-tip handwriting (OFL-1.1), for headings and UI labels: notes pinned to a moodboard.
-const kalam = Kalam({
-  variable: "--font-kalam",
-  weight: ["400", "700"],
-  subsets: ["latin"],
-});
-
-// Nunito carries long text so it stays readable.
+// Nunito everywhere: the app and the landing page.
 const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin"],
@@ -29,7 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${kalam.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${nunito.variable} ${geistMono.variable} h-full antialiased`}
       // data-paper (the canvas colour) is set by the script below, before React hydrates.
       suppressHydrationWarning
     >

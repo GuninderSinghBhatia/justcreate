@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueJob } from "@/lib/jobs";
 import { must, ownBoard, requireUser, userFacing, UserError } from "@/lib/require-user";
 import { SPEC_SECTIONS } from "@/lib/spec";
+import { DEMO_GENERATIONS, isDemoUser } from "@/lib/demo";
 import { generationsThisMonth } from "@/lib/usage";
 
 /**
@@ -52,7 +53,7 @@ async function keepCluster(supabase: SupabaseClient, clusterId: string) {
 
 async function queueSpec(boardId: string, params: Record<string, unknown>) {
   const { supabase, user } = await requireUser();
-  const usage = await generationsThisMonth(supabase, user.id);
+  const usage = await generationsThisMonth(supabase, user.id, isDemoUser(user) ? DEMO_GENERATIONS : undefined);
   if (!usage.left) {
     throw new UserError(`Monthly limit reached (${usage.limit} AI generations). Editing and downloading still work.`);
   }

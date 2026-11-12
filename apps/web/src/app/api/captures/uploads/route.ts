@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CAPTURES_BUCKET, type ImageType, type UploadResponse } from "@justcreate/shared";
 import { capturePath, EXTENSIONS, MAX_BYTES } from "@/lib/capture";
+import { DEMO_REFUSAL, isDemoUser } from "@/lib/demo";
 import { allow } from "@/lib/rate-limit";
 import { requestUser } from "@/lib/request-user";
 
@@ -16,6 +17,7 @@ function json(body: UploadResponse, status = 200) {
 export async function POST(request: Request) {
   const auth = await requestUser(request);
   if (!auth) return json({ error: "Not signed in" }, 401);
+  if (isDemoUser(auth.user)) return json({ error: DEMO_REFUSAL }, 403);
   if (!allow(`uploads:${auth.user.id}`, 120)) return json({ error: "Too many captures at once. Wait a minute." }, 429);
 
   const body = (await request.json().catch(() => null)) as { files?: unknown } | null;

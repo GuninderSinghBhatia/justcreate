@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connection } from "next/server";
 import { BarTitle, SiteHeader } from "@/components/site-header";
 import { requireUser } from "@/lib/require-user";
+import { DEMO_GENERATIONS, isDemoUser } from "@/lib/demo";
 import { generationsThisMonth } from "@/lib/usage";
 import { TokenManager } from "./token-manager";
 
@@ -17,7 +18,7 @@ export default async function SettingsPage() {
       .from("api_tokens")
       .select("id, name, prefix, created_at, last_used_at, revoked_at")
       .order("created_at", { ascending: false }),
-    generationsThisMonth(supabase, user.id),
+    generationsThisMonth(supabase, user.id, isDemoUser(user) ? DEMO_GENERATIONS : undefined),
     headers(),
   ]);
   // The address agents send their token to: the configured site, never one taken from the request.

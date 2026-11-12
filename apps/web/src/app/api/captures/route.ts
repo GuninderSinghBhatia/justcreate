@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { CapturePayload, CaptureResponse } from "@justcreate/shared";
 import { CaptureError, MAX_BYTES, parsePayload, saveCapture, type StoredFile } from "@/lib/capture";
+import { DEMO_REFUSAL, isDemoUser } from "@/lib/demo";
 import { allow, enter } from "@/lib/rate-limit";
 import { requestUser } from "@/lib/request-user";
 
@@ -21,6 +22,7 @@ type Auth = NonNullable<Awaited<ReturnType<typeof requestUser>>>;
 export async function POST(request: Request) {
   const auth = await requestUser(request);
   if (!auth) return json({ error: "Not signed in" }, 401);
+  if (isDemoUser(auth.user)) return json({ error: DEMO_REFUSAL }, 403);
   if (!allow(`captures:${auth.user.id}`, 60)) return json({ error: "Too many captures at once. Wait a minute." }, 429);
 
   if (request.headers.get("content-type")?.startsWith("application/json")) return saveJson(auth, request);

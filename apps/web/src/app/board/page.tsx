@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import type { Board, BoardItem, Cluster, ClusterMember } from "@justcreate/shared";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { isDemoUser } from "@/lib/demo";
 import { homeBoard } from "@/lib/boards";
 import { ANALYSIS_EMBED, toViews, type ReferenceRow } from "@/lib/references";
 import { requireUser } from "@/lib/require-user";
@@ -63,6 +64,14 @@ export default async function BoardPage({ searchParams }: PageProps<"/board">) {
     <div className="flex h-dvh flex-col">
       {/* New captures from the extension appear without a reload. */}
       <AutoRefresh />
+      {isDemoUser(user) && (
+        <div className="flex shrink-0 items-center justify-center gap-3 bg-foreground px-3 py-1.5 text-center text-xs text-background">
+          <span>You&apos;re on a demo board. Saving is off and this copy is deleted after a day.</span>
+          <form action="/auth/signout" method="post">
+            <button className="font-semibold underline underline-offset-2">Sign up free</button>
+          </form>
+        </div>
+      )}
       <BoardWorkspace
         board={board}
         items={board.items.map((i) => ({ board_id: i.board_id, reference_id: i.reference_id, x: i.x, y: i.y, w: i.w, h: i.h, z: i.z }))}

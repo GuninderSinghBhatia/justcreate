@@ -165,6 +165,9 @@ function Hero() {
           <a href="#capture" className="lp-link">
             See it work
           </a>
+          <form action="/demo" method="post">
+            <button className="lp-link">Try the demo board</button>
+          </form>
         </div>
         <Ink className="-rotate-2 text-lg">Free during early access. No card.</Ink>
       </div>

@@ -92,6 +92,7 @@ Secrets: `apps/web/.env.local` (gitignored) holds Supabase URL + keys; the worke
 - [x] Settings page: usage this month, tokens, copy-paste setup for Claude Code and Cursor (token + path filled in)
 - [x] Free tier cap: 30 AI design.md generations / month (`AI_MONTHLY_GENERATIONS`), enforced on generate + section rewrite
 - [x] Landing page at `/` (signed-out), privacy policy + terms drafts, branded 404, footer legal links
+- [x] "Try the demo board" (landing + `/login`): a throwaway account with a copy of a template board (images, analysis, clusters); no saving or tokens, 2 AI generations, deleted after 24 h: [DEMO.md](DEMO.md). Local tested; **to go live:** set `DEMO_TEMPLATE_USER_ID` on Vercel (id in `apps/web/.env.local`) and push
 - [x] Tested: Phase 5 e2e 21/21 (UI token flow, API auth + scoping, MCP over stdio with the real client SDK, revoke, cap); landing checked light/dark/mobile, no overflow, no orphaned words
 - [x] Extension ↔ your Chrome: connected (confirmed on `/connect`)
 - [x] Launch prep: extension icons + web favicon; permissions trimmed to contextMenus/storage/scripting/alarms + host (extension e2e still 8/8); store zip with production URL verified; web production build passes; worker Dockerfile (CPU torch, CLIP baked in; not built locally — no Docker here) and HOST/PORT env; full steps in [LAUNCH.md](LAUNCH.md)

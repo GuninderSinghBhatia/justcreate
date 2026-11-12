@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { newToken } from "@/lib/agent";
+import { DEMO_REFUSAL, isDemoUser } from "@/lib/demo";
 import { must, requireUser } from "@/lib/require-user";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -13,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 /** Creates a token and returns it once; only its hash is stored. */
 export async function createToken(name: string) {
   const { user } = await requireUser();
+  if (isDemoUser(user)) throw new Error(DEMO_REFUSAL);
   const { token, hash, prefix } = newToken();
   const label = typeof name === "string" ? name.trim().slice(0, 80) : "";
   must(

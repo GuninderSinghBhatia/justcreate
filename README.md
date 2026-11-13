@@ -6,6 +6,8 @@ JustCreate is a personal visual-inspiration workspace. A Chrome extension saves 
 
 **Live:** https://justcreate-seven.vercel.app
 
+**Try it without signing up:** open the live site and press **Try the demo board** (a private copy of a sample board with AI analysis and clusters, deleted after a day). See it in 70 seconds: [demo video](docs/demo/justcreate-demo.mp4). How the demo works: [docs/DEMO.md](docs/DEMO.md).
+
 ## Who it's for
 
 Web developers, indie hackers and designers who build with AI coding agents and want their taste, not generic AI styling, to drive the UI.
